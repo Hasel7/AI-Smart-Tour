@@ -95,7 +95,7 @@ const Dashboard = () => {
           console.warn("Geolocation Error:", error.message);
           handleLocationFallback();
         },
-        { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
       );
     } else {
       handleLocationFallback();
