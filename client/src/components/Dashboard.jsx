@@ -93,6 +93,7 @@ const Dashboard = () => {
         },
         (error) => {
           console.warn("Geolocation Error:", error.message);
+          alert("Hardware GPS Failed: " + error.message);
           handleLocationFallback();
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
@@ -145,7 +146,7 @@ const Dashboard = () => {
               
             if (livePlaces.length > 0) {
               setPlaces(livePlaces);
-              setGeoError(null);
+              // setGeoError(null); -> Removed so you can see if it fell back!
             } else {
               setGeoError("No popular tourist spots found on Mapbox. Showing defaults.");
             }
@@ -417,7 +418,7 @@ const Dashboard = () => {
               <h2 className="font-['Playfair_Display',serif] text-2xl font-bold text-[#2f2722]">
                 {userLocation ? "Near Your Location" : "Places To Explore"}
               </h2>
-              {userLocation && (
+              {userLocation && !geoError?.includes("blocked") && (
                 <p className="text-[#a0978c] text-[10px] font-bold uppercase tracking-widest mt-0.5 flex items-center">
                   <span className="w-2 h-2 bg-green-500 rounded-full inline-block mr-1.5 animate-pulse"></span>
                   LIVE GPS DETECTED
