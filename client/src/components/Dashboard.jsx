@@ -1,14 +1,39 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { findSurvivalGuide } from "../utils/countryData";
+import BottomNav from "./BottomNav";
 
 const Dashboard = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [places, setPlaces] = useState([]);
+  const [aiRecommendations, setAiRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savedPlaces, setSavedPlaces] = useState(new Set());
   const [userLocation, setUserLocation] = useState(null);
+  const [countryName, setCountryName] = useState(null);
+  const [regionName, setRegionName] = useState("");
+  const [showSurvivalGuide, setShowSurvivalGuide] = useState(true);
+  const [etiquetteIndex, setEtiquetteIndex] = useState(0);
+  const [phraseIndex, setPhraseIndex] = useState(0);
   const [geoError, setGeoError] = useState(null);
+  const [isLiveGps, setIsLiveGps] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("ALL");
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem("theme") === "dark" || false;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDarkMode]);
 
   // We parse the user from sessionStorage. Fallback to 'Amara' if not found.
   const user = JSON.parse(
@@ -17,149 +42,256 @@ const Dashboard = () => {
   const firstName = user.full_name ? user.full_name.split(" ")[0] : "Amara";
   const initial = firstName.charAt(0).toUpperCase();
 
-  // Load preferences
-  const currentPrefs = JSON.parse(
-    sessionStorage.getItem("travel_preferences") || "[]",
-  );
-  const hasPreferences = currentPrefs.length > 0;
-
-  // Find matching places
-  const recommendedPlaces = places.filter((p) => {
-    if (!hasPreferences) return false;
-    return currentPrefs.some((pref) => p.category?.includes(pref));
-  });
 
   useEffect(() => {
-    const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-    
-    const fetchPlaces = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/places`);
-        if (response.ok) {
-          const data = await response.json();
-          setPlaces(data.places);
-        }
-
-        // Now, fetch which places this user has saved
-        const token = sessionStorage.getItem("token");
-        if (token) {
-          const savedRes = await fetch(
-            `${API_BASE}/places/saved`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            },
-          );
-          if (savedRes.ok) {
-            const savedData = await savedRes.json();
-            // Store saved place IDs in a Set for super fast lookups
-            const savedIds = savedData.saved_places.map((p) => p.id);
-            setSavedPlaces(new Set(savedIds));
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch places:", error);
-      } finally {
-        setLoading(false);
+    // ────────────── LIVE GEOLOCATION ──────────────
+    // Maps the browser's GeolocationPositionError code to a reason a user can act on.
+    const describeGeoError = (error) => {
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          return "Location permission denied for this site.";
+        case error.POSITION_UNAVAILABLE:
+          return "Device could not determine a position (no GPS/Wi-Fi signal).";
+        case error.TIMEOUT:
+          return "Location request timed out.";
+        default:
+          return error.message || "Unknown location error.";
       }
     };
-    fetchPlaces();
 
-    // ────────────── LIVE GEOLOCATION ──────────────
-    const handleLocationFallback = async () => {
+    const handleLocationFallback = async (reason) => {
       try {
-        setGeoError("GPS blocked. Estimating city via internet IP...");
+        setGeoError(`${reason} Estimating city via internet IP...`);
         const res = await fetch("https://ipapi.co/json/");
         const data = await res.json();
-        if (data.latitude && data.longitude) {
+        if (typeof data.latitude === "number" && typeof data.longitude === "number") {
+          setIsLiveGps(false);
           setUserLocation({
             lat: data.latitude,
             lng: data.longitude,
           });
+          setGeoError(`${reason} Showing spots near your estimated city (IP-based, may be inaccurate).`);
         } else {
-          setGeoError("Location access unavailable. Showing default spots.");
+          setGeoError(`${reason} IP lookup also failed. Showing default spots.`);
         }
       } catch (err) {
-        setGeoError("Location access unavailable. Showing default spots.");
+        setGeoError(`${reason} IP lookup also failed (${err.message}). Showing default spots.`);
+      }
+    };
+
+    // Beyond this radius of uncertainty (meters), the coordinates are no more
+    // trustworthy than an IP guess and shouldn't be presented as precise "Live GPS".
+    const LOW_ACCURACY_THRESHOLD_METERS = 10000;
+
+    const applyPosition = (position) => {
+      const accuracy = position.coords.accuracy;
+      console.info(`Geolocation accuracy: ~${Math.round(accuracy)}m`);
+      setUserLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+      if (accuracy > LOW_ACCURACY_THRESHOLD_METERS) {
+        setIsLiveGps(false);
+        setGeoError(`Low location accuracy (~${(accuracy / 1000).toFixed(1)}km radius) — likely from mobile data/hotspot with no Wi-Fi to triangulate against. Results may not match your exact area.`);
+      } else {
+        setIsLiveGps(true);
+        setGeoError(null);
       }
     };
 
     if ("geolocation" in navigator) {
+      // 1st attempt: High accuracy (hardware GPS / fast Wi-Fi) with 6s timeout
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
+        applyPosition,
         (error) => {
-          console.warn("Geolocation Error:", error.message);
-          alert("Hardware GPS Failed: " + error.message);
-          handleLocationFallback();
+          const reason = describeGeoError(error);
+          console.warn("High-accuracy geolocation failed/timed out:", reason);
+          // 2nd attempt: Low accuracy (coarse network location) with 6s timeout
+          navigator.geolocation.getCurrentPosition(
+            applyPosition,
+            (errCoarse) => {
+              const coarseReason = describeGeoError(errCoarse);
+              console.warn("Low-accuracy geolocation failed:", coarseReason);
+              // 3rd attempt: IP-based location fallback
+              handleLocationFallback(coarseReason);
+            },
+            { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
+          );
         },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 300000 }
       );
     } else {
-      handleLocationFallback();
+      handleLocationFallback("Geolocation not supported by this browser.");
     }
   }, []);
 
+  // ────────────── REVERSE GEOCODING (COUNTRY DETECTION) ──────────────
   useEffect(() => {
-    if (userLocation) {
-      const fetchLivePlaces = async () => {
+    if (userLocation && !countryName) {
+      const fetchCountryLocality = async () => {
         try {
-          setLoading(true);
-          const { lat, lng } = userLocation;
-          
-          // Using Mapbox Geocoding API (v5) for POIs
-          const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
-          if (!MAPBOX_TOKEN) {
-            setGeoError("Please put your Mapbox token in client/.env as VITE_MAPBOX_TOKEN. Showing defaults for now.");
-            setLoading(false);
-            return;
+          // Extremely fast, free reverse-geocode API for locality resolution
+          const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${userLocation.lat}&longitude=${userLocation.lng}&localityLanguage=en`);
+          const data = await res.json();
+          if (data && data.countryName) {
+            setCountryName(data.countryName);
+            setRegionName(data.principalSubdivision || data.city || "");
           }
-
-          const categories = "restaurant,museum,attraction,historic";
-          const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${categories}.json?proximity=${lng},${lat}&limit=20&access_token=${MAPBOX_TOKEN}`;
-          
-          const response = await fetch(url);
-          const data = await response.json();
-          
-          if (data && data.features) {
-            const livePlaces = data.features.map(feat => {
-              let cat = "Attraction";
-              const typeStr = (feat.place_type || []).join() + " " + (feat.properties?.category || "");
-              if (typeStr.includes("restaurant") || typeStr.includes("food")) cat = "Restaurant";
-              if (typeStr.includes("museum")) cat = "Museum";
-              if (typeStr.includes("historic")) cat = "Historical";
-              if (typeStr.includes("park") || typeStr.includes("nature")) cat = "Nature";
-              
-              return {
-                id: feat.id,
-                name: feat.text,
-                category: cat,
-                latitude: feat.center[1],
-                longitude: feat.center[0],
-                description: feat.properties?.address || feat.place_name || "A wonderful spot near you.",
-                rating: (Math.random() * (5.0 - 4.0) + 4.0).toFixed(1)
-              };
-            });
-              
-            if (livePlaces.length > 0) {
-              setPlaces(livePlaces);
-              // setGeoError(null); -> Removed so you can see if it fell back!
-            } else {
-              setGeoError("No popular tourist spots found on Mapbox. Showing defaults.");
-            }
-          }
-        } catch (err) {
-          console.error("Mapbox API error:", err);
-          setGeoError("Failed to fetch live spots from Mapbox. Showing defaults.");
-        } finally {
-          setLoading(false);
+        } catch (e) {
+          console.error("Failed to reverse geocode:", e);
         }
       };
-      fetchLivePlaces();
+      fetchCountryLocality();
     }
+  }, [userLocation, countryName]);
+
+  // ────────────── ETIQUETTE & PHRASE ROTATION ──────────────
+  useEffect(() => {
+    if (countryName && showSurvivalGuide) {
+      const guide = findSurvivalGuide(countryName, regionName);
+      let etiquetteInterval;
+      let phraseInterval;
+      
+      if (guide) {
+        if (guide.etiquettes && guide.etiquettes.length > 1) {
+          etiquetteInterval = setInterval(() => {
+            setEtiquetteIndex(prev => (prev + 1) % guide.etiquettes.length);
+          }, 7000);
+        }
+        if (guide.phrases && guide.phrases.length > 1) {
+          phraseInterval = setInterval(() => {
+            setPhraseIndex(prev => (prev + 1) % guide.phrases.length);
+          }, 4500); // Rotates slightly faster than etiquette
+        }
+      }
+      return () => {
+        if(etiquetteInterval) clearInterval(etiquetteInterval);
+        if(phraseInterval) clearInterval(phraseInterval);
+      };
+    }
+  }, [countryName, showSurvivalGuide]);
+
+  useEffect(() => {
+    if (!userLocation) return;
+    const loadPlaces = async () => {
+      setLoading(true);
+      const { lat, lng } = userLocation;
+      const token = sessionStorage.getItem("token");
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const prefCategories = JSON.parse(sessionStorage.getItem("travel_preferences") || "[]");
+
+      // Step 1 — Fetch saved places (heart icons + ML input), one request for both
+      let likedNames = [];
+      if (token) {
+        try {
+          const savedRes = await fetch(`${API_BASE}/places/saved`, { headers: { Authorization: `Bearer ${token}` } });
+          const savedData = await savedRes.json();
+          const savedList = savedData.saved_places || [];
+          likedNames = savedList.map(p => p.name).filter(Boolean);
+          setSavedPlaces(new Set(savedList.map(p => p.place_id)));
+        } catch (err) {
+          console.warn("Failed to fetch saved places:", err);
+        }
+      }
+
+      // Step 2 — Fetch nearby places from Google Places API
+      const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+      if (!GOOGLE_API_KEY || GOOGLE_API_KEY.includes("your_google_api_key")) {
+        setGeoError("Please put your Google API key in client/.env as VITE_GOOGLE_PLACES_API_KEY. Showing defaults for now.");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
+          method: "POST",
+          headers: {
+            "X-Goog-Api-Key": GOOGLE_API_KEY,
+            "X-Goog-FieldMask": "places.displayName,places.location,places.primaryType,places.formattedAddress,places.id,places.rating,places.editorialSummary,places.types,places.photos",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            includedTypes: ["restaurant", "museum", "historical_landmark", "park", "tourist_attraction", "lodging", "stadium", "sports_club", "bar"],
+            maxResultCount: 20,
+            languageCode: i18n.language || "en",
+            locationRestriction: {
+              circle: { center: { latitude: lat, longitude: lng }, radius: 5000.0 }
+            }
+          })
+        });
+
+        const data = await response.json();
+
+        if (data && data.places && data.places.length > 0) {
+          const livePlaces = data.places.map(place => {
+            let cat = "Attraction";
+            const types = place.types || [];
+            if (types.includes("restaurant") || types.includes("food") || types.includes("cafe")) cat = "Restaurant";
+            else if (types.includes("museum") || types.includes("art_gallery")) cat = "Museum";
+            else if (types.includes("historical_landmark") || types.includes("place_of_worship")) cat = "Historical";
+            else if (types.includes("park") || types.includes("national_park") || types.includes("campground")) cat = "Nature";
+            else if (types.includes("lodging") || types.includes("hotel")) cat = "Hotel";
+            else if (types.includes("stadium") || types.includes("sports_club") || types.includes("bar")) cat = "Sports";
+            const photo = place.photos?.[0]?.name || null;
+            return {
+              id: place.id || Math.random().toString(),
+              name: place.displayName?.text || t('dashboard.amazing_spot', 'Amazing Tourist Spot'),
+              category: cat,
+              latitude: place.location?.latitude || lat,
+              longitude: place.location?.longitude || lng,
+              description: place.editorialSummary?.text || place.formattedAddress || t('dashboard.beautiful_place', 'A beautiful place to visit.'),
+              rating: place.rating || null,
+              photoUrl: photo ? `https://places.googleapis.com/v1/${photo}/media?maxHeightPx=400&maxWidthPx=400&key=${GOOGLE_API_KEY}` : null,
+              aiScore: 0,
+            };
+          });
+
+          setPlaces(livePlaces);
+        } else {
+          const errorMsg = data?.error?.message
+            ? `Google Error: ${data.error.message}`
+            : "No popular tourist spots found nearby on Google Maps.";
+          setGeoError(`${errorMsg} Showing defaults.`);
+        }
+      } catch (err) {
+        console.error("Google Places API error:", err);
+        setGeoError(`Failed to fetch live spots from Google (${err.message}). Showing defaults.`);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadPlaces();
+  }, [userLocation]);
+
+  // ── Fetch Personalized AI Recommendations (Live Hybrid) ──
+  useEffect(() => {
+    if (!userLocation) return;
+    const fetchAIRecs = async () => {
+      const token = sessionStorage.getItem("token");
+      if (!token) return;
+      const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      const prefCategories = JSON.parse(sessionStorage.getItem("travel_preferences") || "[]");
+
+      try {
+        const res = await fetch(`${API_BASE}/recommendations`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ 
+            user_lat: userLocation.lat, 
+            user_lng: userLocation.lng,
+            preferred_categories: prefCategories,
+            top_n: 6
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAiRecommendations(data.recommendations || []);
+        }
+      } catch (err) {
+        console.info("ML service offline, skipping AI recs.");
+      }
+    };
+    fetchAIRecs();
   }, [userLocation]);
 
   const toggleSavePlace = async (e, placeId) => {
@@ -192,7 +324,10 @@ const Dashboard = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ place_id: placeId }),
+          body: JSON.stringify({
+            place_id: placeId,
+            place_name: places.find(p => p.id === placeId)?.name || null
+          }),
         });
 
         // Update UI immediately
@@ -209,9 +344,9 @@ const Dashboard = () => {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning,";
-    if (hour < 18) return "Good afternoon,";
-    return "Good evening,";
+    if (hour < 12) return t('dashboard.good_morning');
+    if (hour < 18) return t('dashboard.good_afternoon');
+    return t('dashboard.good_evening');
   };
 
   const handleSearch = (e) => {
@@ -221,7 +356,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf8f1] text-[#2f2722] font-['Inter',sans-serif] relative pb-24 font-medium">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-sans relative pb-24 font-medium transition-colors duration-300">
       {/* 
         ========================================
         HEADER
@@ -229,24 +364,104 @@ const Dashboard = () => {
       */}
       <header className="px-6 pt-10 pb-6 flex items-center justify-between">
         <div>
-          <p className="text-[#a0978c] text-sm">{getGreeting()}</p>
-          <h1 className="font-['Playfair_Display',serif] text-3xl font-bold flex items-center space-x-2 mt-1">
+          <p className="text-slate-500 dark:text-slate-400 text-sm transition-colors">{getGreeting()}</p>
+          <h1 className="font-display tracking-tight text-3xl font-bold flex items-center space-x-2 mt-1">
             <span>{firstName}</span>
             <span className="text-2xl">👋</span>
           </h1>
         </div>
 
-        {/* Avatar Profile */}
-        <div
-          onClick={handleLogout}
-          title="Sign out"
-          className="w-11 h-11 rounded-full bg-[#c85a3c] text-white flex items-center justify-center font-bold text-lg cursor-pointer shadow-sm hover:bg-[#b04523] transition-colors"
-        >
-          {initial}
+        {/* Avatar & Toggle */}
+        <div className="flex items-center space-x-4">
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="w-11 h-11 rounded-full bg-slate-200 dark:bg-slate-800 text-xl flex items-center justify-center transition-colors shadow-sm"
+          >
+            {isDarkMode ? "☀️" : "🌙"}
+          </button>
+          <div
+            onClick={handleLogout}
+            title="Sign out"
+            className="w-11 h-11 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-lg cursor-pointer shadow-sm hover:bg-indigo-700 transition-colors"
+          >
+            {initial}
+          </div>
         </div>
       </header>
 
-      <main className="px-6 space-y-8">
+      <main className="px-6 space-y-10">
+        {/* Recommended for You section (AI-powered) */}
+        {aiRecommendations.length > 0 && (
+          <section className="animate-fade-in">
+            <div className="flex items-center space-x-3 mb-5">
+              <div className="w-10 h-10 bg-linear-to-br from-indigo-600 to-amber-500 rounded-2xl flex items-center justify-center text-xl shadow-lg shadow-indigo-600/20">✨</div>
+              <div>
+                <h2 className="font-display tracking-tight text-2xl font-bold dark:text-white">Recommended for You</h2>
+                <div className="flex items-center space-x-1.5">
+                   <p className="text-[10px] text-green-500 font-bold uppercase tracking-widest">Live Hybrid Feed</p>
+                   <span className="w-1 h-1 bg-slate-500 rounded-full"></span>
+                   <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">AI Match</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex overflow-x-auto space-x-5 pb-6 scrollbar-hide -mx-6 px-6">
+              {aiRecommendations.map((rec, i) => {
+                const score = rec.score || 0.85;
+                const getEmoji = (c) => {
+                  const cat = c?.toLowerCase() || "";
+                  if (cat.includes("nature") || cat.includes("park")) return "🌿";
+                  if (cat.includes("museum") || cat.includes("art")) return "🏛️";
+                  if (cat.includes("food") || cat.includes("restau")) return "🍽️";
+                  if (cat.includes("hotel") || cat.includes("lodg")) return "🏨";
+                  if (cat.includes("shop") || cat.includes("mall")) return "🛍️";
+                  return "📍";
+                };
+
+                return (
+                  <div 
+                    key={i}
+                    onClick={() => navigate(`/places/${rec.id}`)}
+                    className="flex-none w-56 glass-panel rounded-3xl overflow-hidden cursor-pointer hover-glow group"
+                  >
+                    <div className="h-36 bg-slate-900 dark:bg-slate-950 flex items-center justify-center relative overflow-hidden">
+                      {rec.photoUrl ? (
+                        <img 
+                          src={rec.photoUrl} 
+                          alt={rec.name} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100" 
+                        />
+                      ) : (
+                        <span className="text-6xl transform group-hover:scale-110 transition-transform duration-500">
+                          {getEmoji(rec.category)}
+                        </span>
+                      )}
+                      
+                      <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-950/50 backdrop-blur-md px-2 py-1 rounded-xl shadow-sm">
+                        <span className="text-xs font-bold text-yellow-500">★ {rec.rating || "4.5"}</span>
+                      </div>
+                    </div>
+                    <div className="p-5">
+                      <h3 className="font-bold text-sm truncate mb-0.5 dark:text-white uppercase tracking-tight">{rec.name}</h3>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-4">{rec.category}</p>
+                      
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-black text-indigo-600 uppercase tracking-tighter">AI PREDICTION</span>
+                        <span className="text-[11px] font-black">{Math.round(score * 100)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-linear-to-r from-indigo-600 to-amber-500 h-full rounded-full transition-all duration-1000" 
+                          style={{ width: `${Math.round(score * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
         {/* 
           ========================================
           SEARCH BAR
@@ -254,9 +469,9 @@ const Dashboard = () => {
         */}
         <form
           onSubmit={handleSearch}
-          className="relative flex items-center bg-[#f0ece1] rounded-2xl p-2 shadow-sm"
+          className="relative flex items-center glass-panel rounded-2xl p-2 transition-all focus-within:shadow-md focus-within:ring-2 focus-within:ring-indigo-600/30"
         >
-          <div className="ml-3 text-[#6c64bc]">
+          <div className="ml-3 text-indigo-500">
             {/* Search Icon */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -277,19 +492,19 @@ const Dashboard = () => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search destinations..."
-            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-[#2f2722] placeholder-[#a0978c] px-3 font-medium outline-none"
+            placeholder={t('dashboard.search_destinations')}
+            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-900 dark:text-white placeholder-[#a0978c] px-3 font-medium outline-none transition-colors"
           />
           <button
             type="submit"
-            className="bg-[#c85a3c] text-white text-sm font-semibold py-2.5 px-5 rounded-xl flex items-center space-x-1.5 hover:bg-[#b04523] shadow-sm"
+            className="bg-indigo-600 text-white text-sm font-semibold py-2.5 px-5 rounded-xl flex items-center space-x-1.5 hover:bg-indigo-700 shadow-sm"
           >
             {/* Lightning bolt icon */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
               fill="currentColor"
-              className="w-4 h-4 text-[#ffc875]"
+              className="w-4 h-4 text-amber-400"
             >
               <path
                 fillRule="evenodd"
@@ -297,112 +512,115 @@ const Dashboard = () => {
                 clipRule="evenodd"
               />
             </svg>
-            <span>Plan</span>
+            <span>{t('dashboard.plan')}</span>
           </button>
         </form>
 
         {/* 
           ========================================
-          AI PICKS FOR YOU
+          SURVIVAL GUIDE WIDGET (BORDER CROSSING)
           ======================================== 
         */}
-        {/* 
-          ========================================
-          AI PICKS FOR YOU (or Preferences Prompt)
-          ======================================== 
-        */}
-        <div
-          onClick={() => {
-            if (!hasPreferences) {
-              navigate("/preferences");
-            } else if (recommendedPlaces.length > 0) {
-              navigate(`/tour-results`, {
-                state: { destination: recommendedPlaces[0].name },
-              });
-            } else {
-              navigate("/tour-results", {
-                state: { destination: "Popular spots" },
-              });
-            }
-          }}
-          className="bg-[#2f2722] rounded-3xl p-5 flex items-center space-x-4 shadow-lg cursor-pointer transform hover:scale-[1.02] transition-transform"
-        >
-          <div className="bg-[#3a312a] p-3 rounded-2xl shrink-0">
-            {/* Robot/Sparkle Icon */}
-            <div className="text-3xl">{hasPreferences ? "✨" : "🤖"}</div>
-          </div>
-          <div className="flex-1">
-            <h3 className="text-[#dcb35f] text-[10px] font-bold tracking-widest uppercase mb-1">
-              {hasPreferences ? "Personalized For You" : "AI Picks For You"}
-            </h3>
-            <p className="text-white text-sm leading-tight pr-4 font-medium">
-              {hasPreferences
-                ? `${recommendedPlaces.length > 0 ? recommendedPlaces.length : "Multiple"} new places match your taste in ${currentPrefs[0]}!`
-                : "Tap here to tell us what type of traveler you are."}
-            </p>
-          </div>
-          <div className="text-[#c85a3c] pr-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2.5}
-              stroke="currentColor"
-              className="w-5 h-5"
+        {countryName && findSurvivalGuide(countryName, regionName) && showSurvivalGuide && (
+          <div className="relative overflow-hidden rounded-4xl p-6 shadow-xl bg-linear-to-br from-slate-900/95 to-slate-950/90 backdrop-blur-2xl border border-white/5">
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowSurvivalGuide(false)}
+              className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
-              />
-            </svg>
+               ✕
+            </button>
+            <div className="flex items-center space-x-3 mb-4">
+               <span className="text-4xl">{findSurvivalGuide(countryName, regionName).flag}</span>
+               <div>
+                  <h3 className="text-slate-500 text-[10px] font-bold tracking-widest uppercase mb-0.5">{t('survival.local_survival_guide')}</h3>
+                  <h2 className="text-white font-display tracking-tight text-xl font-bold">{findSurvivalGuide(countryName, regionName).greeting}</h2>
+               </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-slate-800 rounded-2xl p-4 flex flex-col justify-center text-center">
+                <h4 className="text-amber-500 text-[10px] font-bold tracking-widest uppercase mb-4 flex justify-between items-center text-left">
+                  <span>{t('survival.essential_phrases')}</span>
+                  <span className="text-slate-500 opacity-50">{phraseIndex + 1}/{findSurvivalGuide(countryName, regionName).phrases?.length || 1}</span>
+                </h4>
+                <div key={phraseIndex} className="animate-[fadeIn_0.5s_ease-in-out]">
+                  <div className="text-slate-500 text-[11px] font-bold uppercase tracking-widest mb-1.5">
+                    {t(`survival.${(findSurvivalGuide(countryName, regionName).phrases[phraseIndex]?.meaning || "").toLowerCase().replace(/[^a-z0-9]/g, '_')}`, findSurvivalGuide(countryName, regionName).phrases[phraseIndex]?.meaning || "")}
+                  </div>
+                  <div className="text-white font-display tracking-tight text-3xl font-bold">{findSurvivalGuide(countryName, regionName).phrases[phraseIndex]?.text}</div>
+                </div>
+              </div>
+              <div className="flex flex-col h-full">
+                 <div className="bg-slate-800 rounded-2xl p-4 flex-1 flex flex-col justify-center">
+                    <h4 className="text-teal-500 text-[10px] font-bold tracking-widest uppercase mb-1 flex justify-between items-center">
+                      <span><span className="mr-1">💡</span> {t('survival.etiquette')}</span>
+                      <span className="text-slate-500 opacity-50">{etiquetteIndex + 1}/{findSurvivalGuide(countryName, regionName).etiquettes?.length || 1}</span>
+                    </h4>
+                    <p key={etiquetteIndex} className="text-slate-200 text-xs font-medium leading-relaxed min-h-10 animate-[fadeIn_0.5s_ease-in-out]">
+                      {(() => {
+                        const rawEtiquette = findSurvivalGuide(countryName, regionName).etiquettes ? findSurvivalGuide(countryName, regionName).etiquettes[etiquetteIndex] : findSurvivalGuide(countryName, regionName).etiquette;
+                        const safeKey = rawEtiquette ? "etiquette_" + rawEtiquette.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30).replace(/_+/g, '_').replace(/_$/, '') : 'unknown';
+                        return t(`survival.${safeKey}`, rawEtiquette || "");
+                      })()}
+                    </p>
+                 </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* 
+        {/*
           ========================================
           CATEGORIES
           ======================================== 
         */}
         <section>
-          <h2 className="font-['Playfair_Display',serif] text-2xl font-bold mb-4 text-[#2f2722]">
-            Categories
+          <h2 className="font-display tracking-tight text-2xl font-bold mb-4 text-slate-900 dark:text-white transition-colors">
+            {t('dashboard.categories')}
           </h2>
           <div className="flex overflow-x-auto space-x-3 pb-2 scrollbar-hide -mx-6 px-6">
-            {/* All */}
-            <div className="flex flex-col flex-none items-center justify-center bg-[#1c1815] text-white w-20 h-24 rounded-2xl shadow-sm cursor-pointer">
-              <span className="text-2xl mb-2">🗺️</span>
-              <span className="text-[10px] font-semibold tracking-wider">
-                ALL
-              </span>
+            <div 
+              onClick={() => setActiveCategory("ALL")}
+              className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "ALL" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
+            >
+              <span className={`text-2xl mb-2 ${activeCategory !== "ALL" && "opacity-80"}`}>🗺️</span>
+              <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_all')}</span>
             </div>
-            {/* Culture */}
-            <div className="flex flex-col flex-none items-center justify-center bg-[#f0ece1] text-[#a0978c] w-20 h-24 rounded-2xl cursor-pointer hover:bg-[#e6e1d4] transition-colors">
-              <span className="text-2xl mb-2 opacity-80">🏛️</span>
-              <span className="text-[10px] font-semibold tracking-wider">
-                CULTURE
-              </span>
+            <div 
+              onClick={() => setActiveCategory("CULTURE")}
+              className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "CULTURE" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
+            >
+              <span className={`text-2xl mb-2 ${activeCategory !== "CULTURE" && "opacity-80"}`}>🏛️</span>
+              <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_culture')}</span>
             </div>
-            {/* Dining */}
-            <div className="flex flex-col flex-none items-center justify-center bg-[#f0ece1] text-[#a0978c] w-20 h-24 rounded-2xl cursor-pointer hover:bg-[#e6e1d4] transition-colors">
-              <span className="text-2xl mb-2 opacity-80">🍽️</span>
-              <span className="text-[10px] font-semibold tracking-wider">
-                DINING
-              </span>
+            <div 
+              onClick={() => setActiveCategory("DINING")}
+              className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "DINING" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
+            >
+              <span className={`text-2xl mb-2 ${activeCategory !== "DINING" && "opacity-80"}`}>🍽️</span>
+              <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_dining')}</span>
             </div>
-            {/* Hotels */}
-            <div className="flex flex-col flex-none items-center justify-center bg-[#f0ece1] text-[#a0978c] w-20 h-24 rounded-2xl cursor-pointer hover:bg-[#e6e1d4] transition-colors">
-              <span className="text-2xl mb-2 opacity-80">🏨</span>
-              <span className="text-[10px] font-semibold tracking-wider">
-                HOTELS
-              </span>
+            <div 
+              onClick={() => setActiveCategory("HOTELS")}
+              className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "HOTELS" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
+            >
+              <span className={`text-2xl mb-2 ${activeCategory !== "HOTELS" && "opacity-80"}`}>🏨</span>
+              <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_hotels')}</span>
             </div>
-            {/* Nature */}
-            <div className="flex flex-col flex-none items-center justify-center bg-[#f0ece1] text-[#a0978c] w-20 h-24 rounded-2xl cursor-pointer hover:bg-[#e6e1d4] transition-colors">
-              <span className="text-2xl mb-2 opacity-80">🌳</span>
-              <span className="text-[10px] font-semibold tracking-wider">
-                NATURE
-              </span>
+            <div 
+              onClick={() => setActiveCategory("NATURE")}
+              className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "NATURE" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
+            >
+              <span className={`text-2xl mb-2 ${activeCategory !== "NATURE" && "opacity-80"}`}>🌳</span>
+              <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_nature')}</span>
+            </div>
+            <div 
+              onClick={() => setActiveCategory("SPORTS")}
+              className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "SPORTS" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
+            >
+              <span className={`text-2xl mb-2 ${activeCategory !== "SPORTS" && "opacity-80"}`}>⚽</span>
+              <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_sports', 'SPORTS')}</span>
             </div>
           </div>
         </section>
@@ -412,59 +630,79 @@ const Dashboard = () => {
           NEARBY PLACES (LIVE GEOLOCATION)
           ======================================== 
         */}
-        <section>
+        <section className="mt-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-['Playfair_Display',serif] text-2xl font-bold text-[#2f2722]">
-                {userLocation ? "Near Your Location" : "Places To Explore"}
+              <h2 className="font-display tracking-tight text-2xl font-bold text-slate-900 dark:text-white transition-colors">
+                {userLocation ? t('dashboard.near_location') : t('dashboard.places_explore')}
               </h2>
-              {userLocation && !geoError?.includes("blocked") && (
-                <p className="text-[#a0978c] text-[10px] font-bold uppercase tracking-widest mt-0.5 flex items-center">
+              {userLocation && isLiveGps && (
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-0.5 flex items-center">
                   <span className="w-2 h-2 bg-green-500 rounded-full inline-block mr-1.5 animate-pulse"></span>
-                  LIVE GPS DETECTED
+                  {t('dashboard.live_gps')}
                 </p>
               )}
               {geoError && (
-                <p className="text-[#c85a3c] text-xs font-semibold mt-0.5">
+                <p className="text-indigo-600 text-xs font-semibold mt-0.5">
                   {geoError}
                 </p>
               )}
             </div>
 
-            <a
-              href="#"
-              className="text-[#c85a3c] text-sm font-semibold flex items-center hover:underline"
+            <button
+              onClick={() => navigate("/saved")}
+              className="text-indigo-600 text-sm font-semibold flex items-center hover:underline"
             >
-              See all <span className="ml-1 text-lg mb-0.5">&rarr;</span>
-            </a>
+              {t('dashboard.see_all', 'See all')} <span className="ml-1 text-lg mb-0.5">&rarr;</span>
+            </button>
           </div>
 
           <div className="flex overflow-x-auto space-x-4 pb-4 scrollbar-hide -mx-6 px-6">
             {loading ? (
-              <p className="text-[#a0978c] text-sm animate-pulse">
-                Loading amazing places...
-              </p>
+              // ── Skeleton Cards ──
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex-none w-50 bg-slate-100 dark:bg-slate-800 rounded-[4xl] overflow-hidden border border-transparent dark:border-slate-700">
+                  <div className="h-35 skeleton" />
+                  <div className="p-4 space-y-2">
+                    <div className="skeleton h-4 rounded-full w-3/4" />
+                    <div className="skeleton h-3 rounded-full w-1/2" />
+                    <div className="skeleton h-3 rounded-full w-5/6" />
+                  </div>
+                </div>
+              ))
             ) : places.length === 0 ? (
-              <p className="text-[#a0978c] text-sm">
-                No places found. Go to Supabase and add some!
+              <p className="text-slate-500 text-sm">
+                {t('dashboard.no_places', 'No places found.')}
               </p>
             ) : (
-              places.map((place) => {
+              places.filter(p => {
+                if (activeCategory === "ALL") return true;
+                if (activeCategory === "CULTURE") return p.category === "Museum" || p.category === "Historical";
+                if (activeCategory === "DINING") return p.category === "Restaurant";
+                if (activeCategory === "HOTELS") return p.category === "Hotel";
+                if (activeCategory === "NATURE") return p.category === "Nature";
+                if (activeCategory === "SPORTS") return p.category === "Sports";
+                return true;
+              }).map((place) => {
                 // Determine a background color based on ID to make it colorful
                 const colors = [
-                  "bg-[#89adc7]",
-                  "bg-[#9ebc90]",
-                  "bg-[#e2dac9]",
-                  "bg-[#ffc875]",
-                  "bg-[#fc84a1]",
+                  "bg-sky-500",
+                  "bg-teal-500",
+                  "bg-slate-200",
+                  "bg-amber-400",
+                  "bg-rose-400",
                 ];
-                const bgColor = colors[place.id % colors.length];
+                const charCode = place.name ? place.name.charCodeAt(0) : 0;
+                const bgColor = colors[charCode % colors.length];
 
                 // Pick a random emoji if category doesn't inherently give one
                 const getEmoji = (category) => {
                   if (category?.includes("Restaurant")) return "🍽️";
                   if (category?.includes("Park")) return "🌳";
                   if (category?.includes("Historical")) return "🏛️";
+                  if (category?.includes("Museum")) return "🏺";
+                  if (category?.includes("Hotel") || category?.includes("Lodging")) return "🏨";
+                  if (category?.includes("Sports")) return "⚽";
                   if (category?.includes("Attraction")) return "📸";
                   return "📍";
                 };
@@ -475,12 +713,13 @@ const Dashboard = () => {
                   <div
                     key={place.id}
                     onClick={() => navigate(`/places/${place.id}`)}
-                    className="flex-none w-[200px] bg-[#f0ece1] rounded-[4xl] overflow-hidden shadow-sm relative cursor-pointer hover:shadow-md transition-all active:scale-95"
+                    className="flex-none w-50 glass-panel rounded-3xl overflow-hidden relative cursor-pointer hover-glow active:scale-95"
+                    style={{ animation: `fadeInUp 0.45s ease-out ${Math.min(places.indexOf(place) * 0.06, 0.5)}s both` }}
                   >
                     {/* Heart Icon */}
                     <div
                       onClick={(e) => toggleSavePlace(e, place.id)}
-                      className={`absolute top-3 right-3 w-8 h-8 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm z-10 transition-colors ${isSaved ? "text-[#c85a3c]" : "text-[#a0978c] hover:text-[#c85a3c]"}`}
+                      className={`absolute top-3 right-3 w-8 h-8 bg-white/80 dark:bg-slate-950/40 backdrop-blur-sm rounded-full flex items-center justify-center shadow-sm z-10 transition-colors ${isSaved ? "text-indigo-600" : "text-slate-500 hover:text-indigo-600"}`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -500,37 +739,48 @@ const Dashboard = () => {
 
                     {/* Image Header Area */}
                     <div
-                      className={`h-[140px] ${bgColor} flex items-center justify-center`}
+                      className={`h-35 ${bgColor} flex items-center justify-center bg-cover bg-center relative`}
+                      style={place.photoUrl ? { backgroundImage: `url(${place.photoUrl})` } : {}}
                     >
-                      <span className="text-6xl drop-shadow-lg">
-                        {getEmoji(place.category)}
-                      </span>
+                      {place.aiScore > 0 && (
+                        <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md text-amber-500 text-[10px] font-bold tracking-widest uppercase px-2 py-1 rounded-full border border-amber-500/50 shadow-lg flex items-center">
+                           ✨ {Math.round(place.aiScore * 100)}% Match
+                        </div>
+                      )}
+                      {!place.photoUrl && (
+                        <span className="text-6xl drop-shadow-lg">
+                          {getEmoji(place.category)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Card Body */}
                     <div className="p-4 pt-5 pb-5">
                       <h3
-                        className="font-['Playfair_Display',serif] text-[1.15rem] font-bold text-[#2f2722] mb-1 leading-tight truncate"
+                        className="font-display tracking-tight text-[1.15rem] font-bold text-slate-900 dark:text-white mb-1 leading-tight truncate transition-colors"
                         title={place.name}
                       >
                         {place.name}
                       </h3>
-                      <div className="flex justify-between items-center text-xs text-[#a0978c] font-medium mb-1.5">
+                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium mb-1.5">
                         <div className="flex items-center space-x-1">
-                          <span className="text-[#fc84a1]">📍</span>
+                          <span className="text-lg -mt-0.5">{getEmoji(place.category)}</span>
                           <span
-                            className="truncate max-w-[70px]"
+                            className="truncate max-w-20"
                             title={place.category}
                           >
-                            {place.category}
+                            {(() => {
+                              const rawCat = t(`dashboard.cat_${(place.category || '').toLowerCase()}`, place.category);
+                              return rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase();
+                            })()}
                           </span>
                         </div>
-                        <div className="flex items-center text-[#2f2722] font-semibold">
-                          <span className="text-[#dcb35f] mr-1 text-sm">★</span>
+                        <div className="flex items-center text-slate-900 dark:text-gray-300 font-semibold transition-colors">
+                          <span className="text-amber-500 mr-1 text-sm">★</span>
                           {place.rating || "4.5"}
                         </div>
                       </div>
-                      <p className="text-[#3c7653] text-[11px] font-bold line-clamp-2 mt-2 leading-relaxed h-8">
+                      <p className="text-teal-700 dark:text-teal-400 text-[11px] font-bold line-clamp-2 mt-2 leading-relaxed h-8 transition-colors">
                         {place.description}
                       </p>
                     </div>
@@ -542,64 +792,7 @@ const Dashboard = () => {
         </section>
       </main>
 
-      {/* 
-        ========================================
-        BOTTOM NAVIGATION
-        ======================================== 
-      */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#faf8f1] border-t border-[#e2dac9] px-6 py-4 flex justify-between items-center z-50">
-        <div className="flex flex-col items-center space-y-1">
-          <span className="text-2xl mb-0.5">🏠</span>
-          <span className="text-[#c85a3c] text-[9px] font-bold tracking-widest uppercase">
-            HOME
-          </span>
-          <div className="w-1 h-1 bg-[#c85a3c] rounded-full mt-0.5"></div>
-        </div>
-
-        <div
-          onClick={() => navigate("/map")}
-          className="flex flex-col items-center space-y-1 opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
-        >
-          <span className="text-2xl mb-0.5">🗺️</span>
-          <span className="text-[#a0978c] text-[9px] font-bold tracking-widest uppercase">
-            MAP
-          </span>
-          <div className="w-1 h-1 bg-transparent mt-0.5"></div>
-        </div>
-
-        <div
-          onClick={() => navigate("/saved")}
-          className="flex flex-col items-center space-y-1 opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
-        >
-          <span className="text-2xl mb-0.5">💖</span>
-          <span className="text-[#a0978c] text-[9px] font-bold tracking-widest uppercase">
-            SAVED
-          </span>
-          <div className="w-1 h-1 bg-transparent mt-0.5"></div>
-        </div>
-
-        <div
-          onClick={() => navigate("/profile")}
-          className="flex flex-col items-center space-y-1 opacity-50 hover:opacity-100 transition-opacity cursor-pointer"
-        >
-          <span className="text-2xl mb-0.5">👤</span>
-          <span className="text-[#a0978c] text-[9px] font-bold tracking-widest uppercase">
-            PROFILE
-          </span>
-          <div className="w-1 h-1 bg-transparent mt-0.5"></div>
-        </div>
-      </nav>
-
-      {/* Hide scrollbar globally for webkit (Chrome/Safari) */}
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-      `}</style>
+      <BottomNav />
     </div>
   );
 };

@@ -1,4 +1,76 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Outfit", sans-serif;
+}
 
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/60 dark:bg-slate-950/80 backdrop-blur-2xl border border-white/50 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)];
+  }
+  .hover-glow {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(79,70,229,0.15)] dark:hover:shadow-[0_12px_40px_rgba(79,70,229,0.25)];
+  }
+}
 
+/* ─── Global Keyframes ─────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+@keyframes toastSlideOut {
+  from { opacity: 1; transform: translateY(0)   scale(1);    }
+  to   { opacity: 0; transform: translateY(10px) scale(0.95); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Skeleton Shimmer ─────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #e8e3d8 25%,
+    #f2ede4 50%,
+    #e8e3d8 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+.dark .skeleton {
+  background: linear-gradient(
+    90deg,
+    #2a2a2a 25%,
+    #363636 50%,
+    #2a2a2a 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+/* ─── Hide Scrollbar ───────────────────────────────── */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Spinner ──────────────────────────────────────── */
+.spin { animation: spin 0.8s linear infinite; }

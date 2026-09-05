@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { query } from "../config/db.js";
+import { verifyToken } from "../middleware/auth.js";
 
 dotenv.config();
 
@@ -32,16 +33,16 @@ router.post("/register", async (req, res) => {
 
     // Insert new user
     const result = await query(
-      `INSERT INTO users (full_name, email, password_hash, preferred_language)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, full_name, email, preferred_language, created_at`,
-      [full_name, email, password_hash, preferred_language || "gb"]
+      `INSERT INTO users (full_name, email, password_hash, preferred_language, role)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, full_name, email, preferred_language, role, created_at`,
+      [full_name, email, password_hash, preferred_language || "gb", 'user']
     );
 
     const user = result.rows[0];
 
     // Create JWT token
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user.id, role: user.role || "user" }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
@@ -70,7 +71,7 @@ router.post("/login", async (req, res) => {
   try {
     // Find user by email
     const result = await query(
-      "SELECT id, full_name, email, password_hash, preferred_language FROM users WHERE email = $1",
+      "SELECT id, full_name, email, password_hash, preferred_language, role FROM users WHERE email = $1",
       [email]
     );
 
@@ -87,7 +88,7 @@ router.post("/login", async (req, res) => {
     }
 
     // Create JWT token
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user.id, role: user.role || "user" }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
@@ -99,11 +100,64 @@ router.post("/login", async (req, res) => {
         full_name: user.full_name,
         email: user.email,
         preferred_language: user.preferred_language,
+        role: user.role || 'user'
       },
     });
   } catch (err) {
     console.error("Login error:", err.message);
     res.status(500).json({ message: "Server error. Please try again." });
+  }
+});
+
+// ─────────────────────────────────────────
+// PUT /api/auth/profile
+// ─────────────────────────────────────────
+router.put("/profile", verifyToken, async (req, res) => {
+  const user_id = req.user.id;
+  const { preferred_language, full_name, password } = req.body;
+
+  try {
+    let updateFields = [];
+    let queryValues = [];
+    let idx = 1;
+
+    if (preferred_language) {
+      updateFields.push(`preferred_language = $${idx++}`);
+      queryValues.push(preferred_language);
+    }
+    
+    if (full_name) {
+      updateFields.push(`full_name = $${idx++}`);
+      queryValues.push(full_name);
+    }
+
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      const password_hash = await bcrypt.hash(password, salt);
+      updateFields.push(`password_hash = $${idx++}`);
+      queryValues.push(password_hash);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ message: "No fields to update." });
+    }
+
+    queryValues.push(user_id);
+    const queryString = `UPDATE users SET ${updateFields.join(", ")} WHERE id = $${idx} RETURNING id, full_name, email, preferred_language`;
+
+    const result = await query(queryString, queryValues);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json({
+      message: "Profile updated successfully!",
+      user: result.rows[0],
+    });
+  } catch (err) {
+    console.error("Profile update error:", err.message);
+    res.status(500).json({ message: "Server error while updating profile." });
   }
 });
 

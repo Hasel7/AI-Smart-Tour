@@ -14,9 +14,13 @@ server/.env
 
 # Build folders
 client/dist/
+client/dev-dist/
 server/dist/
 build/
 .next/
+
+# Scratch/debug files
+client/tmp*.json
 
 # Misc
 .DS_Store

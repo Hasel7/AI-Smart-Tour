@@ -11,12 +11,28 @@ import SavedPlaces from "./components/SavedPlaces";
 import Profile from "./components/Profile";
 import MapExplore from "./components/MapExplore";
 import Preferences from "./components/Preferences";
+import AdminDashboard from "./components/AdminDashboard";
+import { useEffect } from "react";
+
+import OfflineBanner from "./components/OfflineBanner";
 
 function App() {
   const token = sessionStorage.getItem("token");
 
+  // Globally initialize dark mode on initial app render
+  useEffect(() => {
+    const isDark = JSON.parse(localStorage.getItem("theme_dark")) || false;
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
   return (
-    <Routes>
+    <>
+      <OfflineBanner />
+      <Routes>
       {/* If already logged in, redirect / to /dashboard */}
       <Route
         path="/"
@@ -83,7 +99,16 @@ function App() {
           </PrivateRoute>
         }
       />
-    </Routes>
+      <Route
+        path="/admin"
+        element={
+          <PrivateRoute>
+            <AdminDashboard />
+          </PrivateRoute>
+        }
+      />
+      </Routes>
+    </>
   );
 }
 

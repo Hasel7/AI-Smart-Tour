@@ -6,11 +6,11 @@ const Preferences = () => {
   const [selected, setSelected] = useState([]);
 
   const categories = [
-    { id: "Culture", emoji: "🏛️", label: "Culture & History", bg: "bg-[#89adc7]" },
-    { id: "Nature", emoji: "🌳", label: "Nature & Parks", bg: "bg-[#9ebc90]" },
-    { id: "Dining", emoji: "🍽️", label: "Food & Dining", bg: "bg-[#ffc875]" },
-    { id: "Hotels", emoji: "🏨", label: "Luxury Stays", bg: "bg-[#e2dac9]" },
-    { id: "Attraction", emoji: "📸", label: "Tourist Attractions", bg: "bg-[#fc84a1]" }
+    { id: "Culture", emoji: "🏛️", label: "Culture & History", bg: "bg-sky-500" },
+    { id: "Nature", emoji: "🌳", label: "Nature & Parks", bg: "bg-teal-500" },
+    { id: "Dining", emoji: "🍽️", label: "Food & Dining", bg: "bg-amber-400" },
+    { id: "Hotels", emoji: "🏨", label: "Luxury Stays", bg: "bg-slate-200" },
+    { id: "Attraction", emoji: "📸", label: "Tourist Attractions", bg: "bg-rose-400" }
   ];
 
   const toggleCategory = (id) => {
@@ -33,12 +33,12 @@ const Preferences = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf8f1] font-['Inter',sans-serif] flex flex-col px-6 pt-16 pb-10 line-clamp-1">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-['Inter',sans-serif] flex flex-col px-6 pt-16 pb-10 transition-colors duration-300">
       <div className="flex-1">
-        <h1 className="font-['Playfair_Display',serif] text-4xl font-bold text-[#2f2722] leading-tight mb-3">
+        <h1 className="font-['Playfair_Display',serif] text-4xl font-bold text-slate-900 dark:text-white leading-tight mb-3 transition-colors">
           What kind of traveler are you?
         </h1>
-        <p className="text-[#a0978c] font-medium text-sm mb-10 leading-relaxed">
+        <p className="text-slate-500 dark:text-gray-300 font-medium text-sm mb-10 leading-relaxed transition-colors">
           Select the experiences you love most, and our AI will personalize your Smart Tour dashboard.
         </p>
 
@@ -51,20 +51,20 @@ const Preferences = () => {
                 onClick={() => toggleCategory(cat.id)}
                 className={`w-full p-4 rounded-3xl flex items-center space-x-4 cursor-pointer transition-all border-2 ${
                   isSelected 
-                    ? `border-[#2f2722] bg-white shadow-md transform scale-[1.02]` 
-                    : `border-transparent bg-[#f0ece1] hover:bg-[#e8e4d9] opacity-80`
+                    ? `border-slate-900 dark:border-slate-400 bg-white dark:bg-slate-800 shadow-md transform scale-[1.02]` 
+                    : `border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-[#e8e4d9] dark:hover:bg-slate-700 opacity-80`
                 }`}
               >
                 <div className={`w-14 h-14 ${cat.bg} rounded-2xl flex items-center justify-center text-3xl shadow-inner`}>
                   {cat.emoji}
                 </div>
                 <div className="flex-1">
-                  <h3 className={`font-['Playfair_Display',serif] text-xl font-bold ${isSelected ? 'text-[#2f2722]' : 'text-[#554e49]'}`}>
+                  <h3 className={`font-['Playfair_Display',serif] text-xl font-bold transition-colors ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-gray-400'}`}>
                     {cat.label}
                   </h3>
                 </div>
                 {isSelected && (
-                  <div className="w-6 h-6 bg-[#2f2722] rounded-full flex items-center justify-center text-white mr-2">
+                  <div className="w-6 h-6 bg-slate-900 dark:bg-white rounded-full flex items-center justify-center text-white dark:text-slate-900 mr-2 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
                       <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
                     </svg>
@@ -79,7 +79,7 @@ const Preferences = () => {
       <div className="pt-8">
         <button 
           onClick={handleSave}
-          className="w-full bg-[#2f2722] text-white font-bold py-4 rounded-2xl hover:bg-black transition-colors shadow-lg text-lg flex justify-center items-center"
+          className="w-full bg-slate-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-2xl hover:bg-slate-950 dark:hover:bg-gray-200 transition-colors shadow-lg text-lg flex justify-center items-center"
         >
           {selected.length > 0 ? "Personalize My App ✨" : "Skip For Now"}
         </button>

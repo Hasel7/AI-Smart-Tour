@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import api from "../api";
 
 const CreateAccount = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -46,6 +48,11 @@ const CreateAccount = () => {
       sessionStorage.setItem("token", res.data.token);
       sessionStorage.setItem("user", JSON.stringify(res.data.user));
 
+      // Sync active language to user's remote preference immediately
+      if (res.data.user?.preferred_language) {
+        i18n.changeLanguage(res.data.user.preferred_language.toLowerCase());
+      }
+
       // Redirect to dashboard
       navigate("/dashboard");
     } catch (err) {
@@ -59,25 +66,24 @@ const CreateAccount = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#110e0c] text-white font-['Inter',sans-serif] flex flex-col p-6 sm:p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#110e0c] text-slate-900 dark:text-white font-['Inter',sans-serif] flex flex-col p-6 sm:p-8 transition-colors duration-300">
       <div className="flex-1 w-full max-w-md mx-auto pt-8 pb-12">
         {/* Branding Badge */}
         <div className="flex items-center space-x-2 mb-10">
-          <span className="text-[#dcb35f] text-lg leading-none">✦</span>
-          <span className="text-[#dcb35f] text-sm font-semibold tracking-[0.2em] uppercase">
+          <span className="text-amber-500 text-lg leading-none">✦</span>
+          <span className="text-amber-500 text-sm font-semibold tracking-[0.2em] uppercase">
             Smarttour
           </span>
         </div>
 
         {/* Heading */}
         <h1 className="font-['Playfair_Display',serif] text-[3.2rem] leading-[1.05] tracking-tight mb-4 font-bold">
-          <div className="text-white">Create your</div>
-          <div className="text-white">Account</div>
+          <div className="text-slate-900 dark:text-white transition-colors">{t('auth.create_account')}</div>
         </h1>
 
         {/* Subtitle */}
-        <p className="text-[#9e9185] text-base mb-10">
-          Start exploring personalised destinations
+        <p className="text-[#8b8276] dark:text-[#9e9185] text-base mb-10 transition-colors">
+          {t('auth.register_subtitle')}
         </p>
 
         {/* Error Message */}
@@ -92,7 +98,7 @@ const CreateAccount = () => {
           {/* Full Name */}
           <div className="flex flex-col space-y-2">
             <label className="text-[#7d6e5d] text-xs font-semibold tracking-wider uppercase">
-              Full Name
+              {t('auth.full_name')}
             </label>
             <div className="relative flex items-center">
               <div className="absolute left-4 opacity-50 text-[#9682b1]">
@@ -115,8 +121,7 @@ const CreateAccount = () => {
                 value={formData.full_name}
                 onChange={handleChange}
                 required
-                className="w-full bg-[#251f1a] border border-[#42372d] text-white rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-[#dcb35f] transition-colors"
-                placeholder="Input your full name"
+                className="w-full bg-white dark:bg-[#251f1a] border border-[#e2dcd0] dark:border-[#42372d] text-slate-900 dark:text-white rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-amber-500 transition-colors"
               />
             </div>
           </div>
@@ -124,7 +129,7 @@ const CreateAccount = () => {
           {/* Email Address */}
           <div className="flex flex-col space-y-2">
             <label className="text-[#7d6e5d] text-xs font-semibold tracking-wider uppercase">
-              Email Address
+              {t('auth.email')}
             </label>
             <div className="relative flex items-center">
               <div className="absolute left-4 opacity-50 text-[#a09eaf]">
@@ -144,8 +149,7 @@ const CreateAccount = () => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full bg-[#251f1a] border border-[#42372d] text-white rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-[#dcb35f] transition-colors"
-                placeholder="Input your email"
+                className="w-full bg-white dark:bg-[#251f1a] border border-[#e2dcd0] dark:border-[#42372d] text-slate-900 dark:text-white rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-amber-500 transition-colors"
               />
             </div>
           </div>
@@ -153,10 +157,10 @@ const CreateAccount = () => {
           {/* Password */}
           <div className="flex flex-col space-y-2">
             <label className="text-[#7d6e5d] text-xs font-semibold tracking-wider uppercase">
-              Password
+              {t('auth.password')}
             </label>
             <div className="relative flex items-center">
-              <div className="absolute left-4 opacity-50 text-[#dca34f]">
+              <div className="absolute left-4 opacity-50 text-amber-500">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -176,9 +180,8 @@ const CreateAccount = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="w-full bg-[#251f1a] border border-[#42372d] text-[#7d6e5d] rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-[#dcb35f] transition-colors font-mono tracking-widest"
+                className="w-full bg-white dark:bg-[#251f1a] border border-[#e2dcd0] dark:border-[#42372d] text-slate-900 dark:text-[#7d6e5d] rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-amber-500 transition-colors font-mono tracking-widest"
                 style={{ fontSize: "1.0rem" }}
-                placeholder="Input your password"
               />
               <button
                 type="button"
@@ -218,7 +221,7 @@ const CreateAccount = () => {
           {/* Preferred Language */}
           <div className="flex flex-col space-y-2">
             <label className="text-[#7d6e5d] text-xs font-semibold tracking-wider uppercase">
-              Preferred Language
+              {t('auth.lang_pref')}
             </label>
             <div className="relative flex items-center">
               <div className="absolute left-4 opacity-70 text-[#4ca6c2]">
@@ -239,7 +242,7 @@ const CreateAccount = () => {
                 name="preferred_language"
                 value={formData.preferred_language}
                 onChange={handleChange}
-                className="w-full bg-[#251f1a] border border-[#42372d] text-white rounded-2xl py-4 pl-12 pr-10 focus:outline-none focus:border-[#dcb35f] transition-colors appearance-none cursor-pointer"
+                className="w-full bg-white dark:bg-[#251f1a] border border-[#e2dcd0] dark:border-[#42372d] text-slate-900 dark:text-white rounded-2xl py-4 pl-12 pr-10 focus:outline-none focus:border-amber-500 transition-colors appearance-none cursor-pointer"
               >
                 <option value="gb">GB English</option>
                 <option value="us">US English</option>
@@ -271,7 +274,7 @@ const CreateAccount = () => {
                 name="agreed"
                 checked={formData.agreed}
                 onChange={handleChange}
-                className="peer appearance-none w-6 h-6 border-2 border-[#cc5529] rounded bg-[#cc5529] checked:bg-[#cc5529] checked:border-[#cc5529] cursor-pointer transition-colors"
+                className="peer appearance-none w-6 h-6 border-2 border-indigo-600 rounded bg-transparent checked:bg-indigo-600 checked:border-indigo-600 cursor-pointer transition-colors"
               />
               <svg
                 className="absolute w-4 h-4 text-white pointer-events-none left-1 top-1 opacity-0 peer-checked:opacity-100 transition-opacity"
@@ -288,11 +291,11 @@ const CreateAccount = () => {
             </div>
             <p className="text-[#9e9185] text-sm">
               I agree to the{" "}
-              <a href="#" className="text-[#c19139] hover:underline">
+              <a href="#" className="text-amber-500 hover:underline">
                 Terms of Service
               </a>{" "}
               and{" "}
-              <a href="#" className="text-[#c19139] hover:underline">
+              <a href="#" className="text-amber-500 hover:underline">
                 Privacy Policy
               </a>
             </p>
@@ -303,13 +306,13 @@ const CreateAccount = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#cc5529] hover:bg-[#b04523] disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium py-4 px-6 rounded-3xl transition-colors flex items-center justify-center space-x-2 shadow-lg shadow-[#cc5529]/20"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium py-4 px-6 rounded-3xl transition-colors flex items-center justify-center space-x-2 shadow-lg shadow-indigo-600/20"
             >
               {loading ? (
-                <span>Creating account...</span>
+                <span>...</span>
               ) : (
                 <>
-                  <span>Create Account</span>
+                  <span>{t('auth.create_account')}</span>
                   <span>&rarr;</span>
                 </>
               )}
@@ -319,13 +322,13 @@ const CreateAccount = () => {
           {/* Login Link */}
           <div className="text-center mt-6 pt-2">
             <span className="text-[#9e9185] text-sm tracking-wide">
-              Already have an account?{" "}
+              {t('auth.already_have')}{" "}
             </span>
             <Link
               to="/login"
-              className="text-[#c19139] text-sm font-medium hover:underline"
+              className="text-amber-500 text-sm font-medium hover:underline"
             >
-              Login
+              {t('auth.login_btn')}
             </Link>
           </div>
         </form>

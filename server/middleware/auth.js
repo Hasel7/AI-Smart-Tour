@@ -9,9 +9,16 @@ export const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Extracts { id: user_id } from the token payload
+    req.user = decoded; // Extracts { id, role, ... } from the token payload
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid or expired token. Access denied." });
   }
+};
+
+export const verifyAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Access denied. Administrator privileges required." });
+  }
+  next();
 };

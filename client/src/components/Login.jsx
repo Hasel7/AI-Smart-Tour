@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import api from "../api";
 
 const Login = () => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,6 +33,11 @@ const Login = () => {
       sessionStorage.setItem("token", res.data.token);
       sessionStorage.setItem("user", JSON.stringify(res.data.user));
 
+      // Sync active language to user's remote preference immediately
+      if (res.data.user?.preferred_language) {
+        i18n.changeLanguage(res.data.user.preferred_language.toLowerCase());
+      }
+
       // Redirect to dashboard
       navigate("/dashboard");
     } catch (err) {
@@ -41,25 +48,24 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#110e0c] text-white font-['Inter',sans-serif] flex flex-col p-6 sm:p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#110e0c] text-slate-900 dark:text-white font-['Inter',sans-serif] flex flex-col p-6 sm:p-8 transition-colors duration-300">
       <div className="flex-1 w-full max-w-md mx-auto pt-8 pb-12">
         {/* Branding Badge */}
         <div className="flex items-center space-x-2 mb-10">
-          <span className="text-[#dcb35f] text-lg leading-none">✦</span>
-          <span className="text-[#dcb35f] text-sm font-semibold tracking-[0.2em] uppercase">
+          <span className="text-amber-500 text-lg leading-none">✦</span>
+          <span className="text-amber-500 text-sm font-semibold tracking-[0.2em] uppercase">
             Smarttour
           </span>
         </div>
 
         {/* Heading */}
         <h1 className="font-['Playfair_Display',serif] text-[3.2rem] leading-[1.05] tracking-tight mb-4 font-bold">
-          <div className="text-white">Welcome</div>
-          <div className="text-white">Back</div>
+          <div className="text-slate-900 dark:text-white transition-colors">{t('auth.welcome_back')}</div>
         </h1>
 
         {/* Subtitle */}
-        <p className="text-[#9e9185] text-base mb-10">
-          Sign in to continue your journey
+        <p className="text-[#8b8276] dark:text-[#9e9185] text-base mb-10 transition-colors">
+          {t('auth.login_subtitle')}
         </p>
 
         {/* Error Message */}
@@ -74,7 +80,7 @@ const Login = () => {
           {/* Email Address */}
           <div className="flex flex-col space-y-2">
             <label className="text-[#7d6e5d] text-xs font-semibold tracking-wider uppercase">
-              Email Address
+              {t('auth.email')}
             </label>
             <div className="relative flex items-center">
               <div className="absolute left-4 opacity-50 text-[#a09eaf]">
@@ -94,8 +100,7 @@ const Login = () => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full bg-[#251f1a] border border-[#42372d] text-white rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-[#dcb35f] transition-colors"
-                placeholder="Input your email"
+                className="w-full bg-white dark:bg-[#251f1a] border border-[#e2dcd0] dark:border-[#42372d] text-slate-900 dark:text-white rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 transition-all"
               />
             </div>
           </div>
@@ -103,10 +108,10 @@ const Login = () => {
           {/* Password */}
           <div className="flex flex-col space-y-2">
             <label className="text-[#7d6e5d] text-xs font-semibold tracking-wider uppercase">
-              Password
+              {t('auth.password')}
             </label>
             <div className="relative flex items-center">
-              <div className="absolute left-4 opacity-50 text-[#dca34f]">
+              <div className="absolute left-4 opacity-50 text-amber-500">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -126,9 +131,8 @@ const Login = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required
-                className="w-full bg-[#251f1a] border border-[#42372d] text-[#7d6e5d] rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-[#dcb35f] transition-colors font-mono tracking-widest"
+                className="w-full bg-white dark:bg-[#251f1a] border border-[#e2dcd0] dark:border-[#42372d] text-slate-900 dark:text-white rounded-2xl py-4 pl-12 pr-12 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 transition-all font-mono tracking-widest"
                 style={{ fontSize: "1.0rem" }}
-                placeholder="Password"
               />
               <button
                 type="button"
@@ -166,7 +170,7 @@ const Login = () => {
 
             {/* Forgot password */}
             <div className="flex justify-end pt-1">
-              <a href="#" className="text-[#c19139] text-sm hover:underline">
+              <a href="#" className="text-amber-500 text-sm hover:underline">
                 Forgot password?
               </a>
             </div>
@@ -177,13 +181,16 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#cc5529] hover:bg-[#b04523] disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium py-4 px-6 rounded-2xl transition-colors flex items-center justify-center space-x-2"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium py-4 px-6 rounded-2xl transition-colors flex items-center justify-center space-x-2"
             >
               {loading ? (
-                <span>Signing in...</span>
+                <svg className="w-5 h-5 spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
               ) : (
                 <>
-                  <span>Sign In</span>
+                  <span>{t('auth.login_btn')}</span>
                   <span>&rarr;</span>
                 </>
               )}
@@ -193,13 +200,13 @@ const Login = () => {
           {/* Sign Up Link */}
           <div className="text-center mt-6 pt-2">
             <span className="text-[#9e9185] text-sm tracking-wide">
-              Don't have an account?{" "}
+              {t('auth.no_account')}{" "}
             </span>
             <Link
               to="/create-account"
-              className="text-[#c19139] text-sm font-medium hover:underline"
+              className="text-amber-500 text-sm font-medium hover:underline"
             >
-              Sign Up
+              {t('auth.register')}
             </Link>
           </div>
         </form>

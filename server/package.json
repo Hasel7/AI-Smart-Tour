@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "ml:retrain": "powershell -ExecutionPolicy Bypass -File scripts/retrain.ps1",
+    "ml:start": "powershell -ExecutionPolicy Bypass -File scripts/start_ml.ps1"
   },
   "keywords": [],
   "author": "",

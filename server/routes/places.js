@@ -5,6 +5,30 @@ import { verifyToken } from "../middleware/auth.js";
 const router = express.Router();
 
 // ─────────────────────────────────────────
+// Ensure saved_places table has required columns
+// ─────────────────────────────────────────
+(async () => {
+  try {
+    // We add category, rating, and photo_url columns if they don't exist to store Google Places metadata
+    await query(`
+      ALTER TABLE saved_places 
+      ADD COLUMN IF NOT EXISTS category TEXT,
+      ADD COLUMN IF NOT EXISTS rating NUMERIC,
+      ADD COLUMN IF NOT EXISTS photo_url TEXT;
+    `);
+
+    // Also ensure places table has photo_url (for admin and consistency)
+    await query(`
+      ALTER TABLE places 
+      ADD COLUMN IF NOT EXISTS photo_url TEXT;
+    `);
+    console.log("Table saved_places schema checked/updated.");
+  } catch (err) {
+    console.error("Error updating saved_places table schema:", err);
+  }
+})();
+
+// ─────────────────────────────────────────
 // GET /api/places
 // ─────────────────────────────────────────
 router.get("/", async (req, res) => {
@@ -37,13 +61,13 @@ router.get("/", async (req, res) => {
 // POST /api/places/save
 // ─────────────────────────────────────────
 router.post("/save", verifyToken, async (req, res) => {
-  const { place_id } = req.body;
+  const { place_id, place_name, category, rating, photo_url } = req.body;
   const user_id = req.user.id;
 
   try {
     await query(
-      "INSERT INTO saved_places (user_id, place_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-      [user_id, place_id]
+      "INSERT INTO saved_places (user_id, place_id, place_name, category, rating, photo_url) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
+      [user_id, place_id, place_name || null, category || null, rating || null, photo_url || null]
     );
     res.status(200).json({ message: "Place saved successfully!" });
   } catch (err) {
@@ -72,15 +96,50 @@ router.delete("/save/:placeId", verifyToken, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// PUT /api/places/save/:placeId (Metadata Update/Repair)
+// ─────────────────────────────────────────
+router.put("/save/:placeId", verifyToken, async (req, res) => {
+  const { placeId } = req.params;
+  const user_id = req.user.id;
+  const { place_name, category, rating, photo_url } = req.body;
+
+  try {
+    const result = await query(
+      "UPDATE saved_places SET place_name = $1, category = $2, rating = $3, photo_url = $4 WHERE user_id = $5 AND place_id = $6 RETURNING *",
+      [place_name, category, rating, photo_url, user_id, placeId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Saved place not found." });
+    }
+
+    res.status(200).json({ message: "Metadata updated successfully!", saved_place: result.rows[0] });
+  } catch (err) {
+    console.error("Update saved place error:", err.message);
+    res.status(500).json({ message: "Failed to update metadata." });
+  }
+});
+
+// ─────────────────────────────────────────
 // GET /api/places/saved
 // ─────────────────────────────────────────
 router.get("/saved", verifyToken, async (req, res) => {
   const user_id = req.user.id;
 
   try {
+    // Local places: join on numeric id. Google places: return name from saved_places directly.
+    // We alias place_id AS id to match frontend expectations.
     const result = await query(`
-      SELECT p.* FROM places p
-      JOIN saved_places sp ON p.id = sp.place_id
+      SELECT
+        COALESCE(p.name, sp.place_name, 'Saved Place') AS name,
+        sp.place_id AS id,
+        sp.place_id,
+        sp.created_at,
+        COALESCE(p.category, sp.category, 'Attraction') AS category,
+        COALESCE(p.rating, sp.rating, 4.5) AS rating,
+        COALESCE(p.photo_url, sp.photo_url) AS photo_url
+      FROM saved_places sp
+      LEFT JOIN places p ON p.id::text = sp.place_id
       WHERE sp.user_id = $1
       ORDER BY sp.created_at DESC
     `, [user_id]);
@@ -97,6 +156,12 @@ router.get("/saved", verifyToken, async (req, res) => {
 // ─────────────────────────────────────────
 router.get("/:placeId/reviews", async (req, res) => {
   const { placeId } = req.params;
+
+  // If the ID is a string (e.g. Google Place ID), return empty reviews for now
+  // to avoid 'invalid input syntax for type integer' DB errors
+  if (isNaN(parseInt(placeId))) {
+    return res.status(200).json({ reviews: [] });
+  }
 
   try {
     const result = await query(`
@@ -143,6 +208,11 @@ router.get("/:id", async (req, res, next) => {
 // ─────────────────────────────────────────
 router.post("/:placeId/reviews", verifyToken, async (req, res) => {
   const { placeId } = req.params;
+
+  if (isNaN(parseInt(placeId))) {
+    return res.status(400).json({ message: "Reviews are currently only supported for local destinations." });
+  }
+
   const user_id = req.user.id;
   const { rating, comment } = req.body;
 
