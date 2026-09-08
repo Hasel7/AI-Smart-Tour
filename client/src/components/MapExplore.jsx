@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,21 @@ const CustomZoomControl = ({ zoomIn, zoomOut }) => {
   return null;
 };
 
+// Tile providers on separate infrastructure — some ISPs (e.g. certain Nigerian
+// mobile networks) route poorly to one CDN but fine to another, so if the
+// primary source loads nothing within a few seconds we fall back automatically.
+const TILE_TIERS = {
+  dark: {
+    primary: { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", invert: false },
+    fallback: { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", invert: true },
+  },
+  light: {
+    primary: { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", invert: false },
+    fallback: { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", invert: false },
+  },
+};
+const TILE_FALLBACK_TIMEOUT_MS = 4000;
+
 const MapExplore = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
@@ -29,9 +44,29 @@ const MapExplore = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [geoError, setGeoError] = useState(null);
   const { isDarkMode } = useTheme();
+  const [tileTier, setTileTier] = useState('primary');
+  const tileLoadedRef = useRef(false);
 
   // Center of the world
   const defaultPosition = [48.8566, 2.3522]; // Paris default
+
+  // Retry from the primary tile provider whenever the theme changes, and
+  // automatically fall back to the alternate provider if nothing loads in time.
+  useEffect(() => {
+    setTileTier('primary');
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    tileLoadedRef.current = false;
+    if (tileTier === 'fallback') return;
+    const timer = setTimeout(() => {
+      if (!tileLoadedRef.current) {
+        console.warn("Map tiles didn't load from the primary provider in time — switching to fallback.");
+        setTileTier('fallback');
+      }
+    }, TILE_FALLBACK_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [isDarkMode, tileTier]);
 
   useEffect(() => {
     const describeGeoError = (error) => {
@@ -279,43 +314,43 @@ const MapExplore = () => {
         </div>
       )}
 
-      {loading ? (
+      {!userLocation ? (
         <div className="flex-1 h-full flex items-center justify-center bg-slate-50 dark:bg-slate-950">
           <Globe className="w-16 h-16 text-slate-400 animate-pulse" />
         </div>
       ) : (
         <div className="absolute inset-0 z-0">
-          {userLocation ? (
-            <MapContainer 
-              center={[userLocation.lat, userLocation.lng]} 
-              zoom={14} 
-              className={`w-full h-full ${isDarkMode ? 'dark-map-tiles' : ''}`}
-              zoomControl={false}
-            >
-              <CustomZoomControl zoomIn={triggerZoomIn} zoomOut={triggerZoomOut} />
-              {/* Dynamic map tiles to match theme using Voyager structure */}
-              <TileLayer
-                attribution='&copy; <a href="https://carto.com/">CartoDB</a> | <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-                url={
-                  isDarkMode 
-                    ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                }
-              />
-              
-              {/* User Location Pulse */}
-              <Marker position={[userLocation.lat, userLocation.lng]} icon={L.divIcon({
-                className: 'custom-user-icon',
-                html: `<div style="width:20px; height:20px; background-color:#3a86ff; border:3px solid #1a202c; border-radius:50%; box-shadow: 0 0 0 3px rgba(58, 134, 255, 0.3);"></div>`,
-                iconSize: [20,20], iconAnchor: [10,10],
-                zIndexOffset: 1000
-              })} />
+          <MapContainer
+            center={[userLocation.lat, userLocation.lng]}
+            zoom={14}
+            className={`w-full h-full ${isDarkMode && TILE_TIERS.dark[tileTier].invert ? 'dark-map-tiles' : ''}`}
+            zoomControl={false}
+          >
+            <CustomZoomControl zoomIn={triggerZoomIn} zoomOut={triggerZoomOut} />
+            {/* Tiered tile provider: primary CDN, auto-falls back to a different
+                one on a separate network if nothing loads in time (see effects above) */}
+            <TileLayer
+              key={`${isDarkMode ? 'dark' : 'light'}-${tileTier}`}
+              attribution='&copy; <a href="https://carto.com/">CartoDB</a> | <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+              url={TILE_TIERS[isDarkMode ? 'dark' : 'light'][tileTier].url}
+              eventHandlers={{
+                tileload: () => { tileLoadedRef.current = true; },
+              }}
+            />
+
+            {/* User Location Pulse */}
+            <Marker position={[userLocation.lat, userLocation.lng]} icon={L.divIcon({
+              className: 'custom-user-icon',
+              html: `<div style="width:20px; height:20px; background-color:#3a86ff; border:3px solid #1a202c; border-radius:50%; box-shadow: 0 0 0 3px rgba(58, 134, 255, 0.3);"></div>`,
+              iconSize: [20,20], iconAnchor: [10,10],
+              zIndexOffset: 1000
+            })} />
 
             {filteredPlaces.map((place) => {
               if(!place.latitude || !place.longitude) return null;
               return (
-                <Marker 
-                  key={place.id} 
+                <Marker
+                  key={place.id}
                   position={[place.latitude, place.longitude]}
                   icon={createCustomIcon(place)}
                   eventHandlers={{
@@ -324,8 +359,7 @@ const MapExplore = () => {
                 />
               )
             })}
-            </MapContainer>
-          ) : null}
+          </MapContainer>
         </div>
       )}
 
@@ -344,7 +378,17 @@ const MapExplore = () => {
           </div>
 
           <div className="space-y-4">
-            {filteredPlaces.map((place, idx) => (
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-slate-100 dark:bg-slate-900 rounded-3xl p-4 flex items-center space-x-4">
+                  <div className="w-12 h-12 rounded-2xl skeleton shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="skeleton h-4 rounded-full w-2/3" />
+                    <div className="skeleton h-3 rounded-full w-1/3" />
+                  </div>
+                </div>
+              ))
+            ) : filteredPlaces.map((place, idx) => (
               <div 
                 key={place.id} 
                 onClick={() => navigate(`/places/${place.id}`)}

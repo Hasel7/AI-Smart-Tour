@@ -59,6 +59,15 @@ export default defineConfig({
             }
           },
           {
+            urlPattern: /^https:\/\/[a-d]\.basemaps\.cartocdn\.com\/.*/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'carto-tiles-cache',
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          {
             urlPattern: /.*\/api\/(tours|places)\/.*/i,
             handler: 'NetworkFirst',
             options: {
