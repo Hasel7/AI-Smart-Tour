@@ -17,18 +17,14 @@ const CustomZoomControl = ({ zoomIn, zoomOut }) => {
   return null;
 };
 
-// Tile providers on separate infrastructure — some ISPs (e.g. certain Nigerian
-// mobile networks) route poorly to one CDN but fine to another, so if the
-// primary source loads nothing within a few seconds we fall back automatically.
-const TILE_TIERS = {
-  dark: {
-    primary: { url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", invert: false },
-    fallback: { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", invert: true },
-  },
-  light: {
-    primary: { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", invert: false },
-    fallback: { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", invert: false },
-  },
+// Tile providers on separate infrastructure, both free and key-free — some ISPs
+// (e.g. certain Nigerian mobile networks) route poorly to one CDN but fine to
+// another, so if the primary source loads nothing within a few seconds we fall
+// back automatically. (CartoDB was tried here but now requires a registered API
+// key for its basemap tiles, so it's intentionally not used.)
+const TILE_URLS = {
+  primary: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  fallback: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
 };
 const TILE_FALLBACK_TIMEOUT_MS = 4000;
 
@@ -50,12 +46,9 @@ const MapExplore = () => {
   // Center of the world
   const defaultPosition = [48.8566, 2.3522]; // Paris default
 
-  // Retry from the primary tile provider whenever the theme changes, and
-  // automatically fall back to the alternate provider if nothing loads in time.
-  useEffect(() => {
-    setTileTier('primary');
-  }, [isDarkMode]);
-
+  // Automatically fall back to the alternate tile provider if the primary
+  // one loads nothing in time (theme doesn't affect which URL is used —
+  // only whether the CSS invert filter is applied — so no reset needed there).
   useEffect(() => {
     tileLoadedRef.current = false;
     if (tileTier === 'fallback') return;
@@ -66,7 +59,7 @@ const MapExplore = () => {
       }
     }, TILE_FALLBACK_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [isDarkMode, tileTier]);
+  }, [tileTier]);
 
   useEffect(() => {
     const describeGeoError = (error) => {
@@ -323,16 +316,17 @@ const MapExplore = () => {
           <MapContainer
             center={[userLocation.lat, userLocation.lng]}
             zoom={14}
-            className={`w-full h-full ${isDarkMode && TILE_TIERS.dark[tileTier].invert ? 'dark-map-tiles' : ''}`}
+            className={`w-full h-full ${isDarkMode ? 'dark-map-tiles' : ''}`}
             zoomControl={false}
           >
             <CustomZoomControl zoomIn={triggerZoomIn} zoomOut={triggerZoomOut} />
             {/* Tiered tile provider: primary CDN, auto-falls back to a different
-                one on a separate network if nothing loads in time (see effects above) */}
+                one on a separate network if nothing loads in time (see effects above).
+                Both sources are light-styled, so dark mode is achieved via CSS invert. */}
             <TileLayer
-              key={`${isDarkMode ? 'dark' : 'light'}-${tileTier}`}
-              attribution='&copy; <a href="https://carto.com/">CartoDB</a> | <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-              url={TILE_TIERS[isDarkMode ? 'dark' : 'light'][tileTier].url}
+              key={tileTier}
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Esri'
+              url={TILE_URLS[tileTier]}
               eventHandlers={{
                 tileload: () => { tileLoadedRef.current = true; },
               }}

@@ -59,10 +59,10 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^https:\/\/[a-d]\.basemaps\.cartocdn\.com\/.*/i,
+            urlPattern: /^https:\/\/server\.arcgisonline\.com\/.*/i,
             handler: 'StaleWhileRevalidate',
             options: {
-              cacheName: 'carto-tiles-cache',
+              cacheName: 'esri-tiles-cache',
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] }
             }
