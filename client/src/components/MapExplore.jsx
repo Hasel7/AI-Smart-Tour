@@ -7,13 +7,19 @@ import L from 'leaflet';
 import { useTheme } from "../hooks/useTheme";
 import { Landmark, UtensilsCrossed, Hotel, Trees, MapPin, Search, Globe, Star } from "lucide-react";
 
-// Zoom control component to link custom buttons to map
-const CustomZoomControl = ({ zoomIn, zoomOut }) => {
+// Zoom/recenter control component to link custom buttons to map
+const CustomZoomControl = ({ zoomIn, zoomOut, recenter, userLocation }) => {
   const map = useMap();
   useEffect(() => {
     if (zoomIn) map.zoomIn();
     if (zoomOut) map.zoomOut();
   }, [zoomIn, zoomOut, map]);
+  useEffect(() => {
+    if (recenter && userLocation) {
+      map.flyTo([userLocation.lat, userLocation.lng], Math.max(map.getZoom(), 14));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recenter]);
   return null;
 };
 
@@ -36,6 +42,7 @@ const MapExplore = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [triggerZoomIn, setTriggerZoomIn] = useState(0);
   const [triggerZoomOut, setTriggerZoomOut] = useState(0);
+  const [triggerRecenter, setTriggerRecenter] = useState(0);
 
   const [userLocation, setUserLocation] = useState(null);
   const [geoError, setGeoError] = useState(null);
@@ -295,7 +302,14 @@ const MapExplore = () => {
         <div className="flex flex-col space-y-3 pointer-events-auto shrink-0">
           <button onClick={() => setTriggerZoomIn(prev => prev + 1)} className="w-12 h-12 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center justify-center text-slate-900 dark:text-white font-bold text-xl shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors">+</button>
           <button onClick={() => setTriggerZoomOut(prev => prev + 1)} className="w-12 h-12 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center justify-center text-slate-900 dark:text-white font-bold text-2xl pb-1 shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors">-</button>
-          <button className="w-12 h-12 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors"><MapPin className="w-5 h-5 text-slate-900 dark:text-white" /></button>
+          <button
+            onClick={() => setTriggerRecenter(prev => prev + 1)}
+            disabled={!userLocation}
+            title="Recenter on my location"
+            className="w-12 h-12 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <MapPin className="w-5 h-5 text-slate-900 dark:text-white" />
+          </button>
         </div>
       </div>
 
@@ -319,7 +333,7 @@ const MapExplore = () => {
             className={`w-full h-full ${isDarkMode ? 'dark-map-tiles' : ''}`}
             zoomControl={false}
           >
-            <CustomZoomControl zoomIn={triggerZoomIn} zoomOut={triggerZoomOut} />
+            <CustomZoomControl zoomIn={triggerZoomIn} zoomOut={triggerZoomOut} recenter={triggerRecenter} userLocation={userLocation} />
             {/* Tiered tile provider: primary CDN, auto-falls back to a different
                 one on a separate network if nothing loads in time (see effects above).
                 Both sources are light-styled, so dark mode is achieved via CSS invert. */}
