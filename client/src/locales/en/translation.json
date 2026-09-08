@@ -63,6 +63,10 @@
     "full_name": "Full Name",
     "email": "Email",
     "language": "Language",
+    "mode": "Mode",
+    "mode_device": "Device",
+    "mode_light": "Light",
+    "mode_dark": "Dark",
     "edit_profile": "Edit Profile",
     "sign_out": "Sign Out",
     "confirm_sign_out": "Are you sure you want to sign out?",
@@ -166,6 +170,10 @@
     "etiquette_always_use_a_napkin_to_hold_fi": "Always use a napkin to hold finger foods like sandwiches or pizza—do not eat with bare hands.",
     "essential_phrases": "Essential Phrases",
     "etiquette": "Etiquette",
-    "local_survival_guide": "Local Survival Guide"
+    "local_survival_guide": "Local Survival Guide",
+    "no_guide_intro": "We don't have detailed local tips for {{country}} yet — here are a few universal reminders:",
+    "generic_tip_1": "Keep copies of your passport and important documents, physical and digital.",
+    "generic_tip_2": "Look up the local emergency number before heading out.",
+    "generic_tip_3": "Observe local dress codes and customs, especially at religious or cultural sites."
   }
 }

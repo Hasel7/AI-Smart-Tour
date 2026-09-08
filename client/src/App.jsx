@@ -12,22 +12,16 @@ import Profile from "./components/Profile";
 import MapExplore from "./components/MapExplore";
 import Preferences from "./components/Preferences";
 import AdminDashboard from "./components/AdminDashboard";
-import { useEffect } from "react";
+import { useTheme } from "./hooks/useTheme";
 
 import OfflineBanner from "./components/OfflineBanner";
 
 function App() {
   const token = sessionStorage.getItem("token");
 
-  // Globally initialize dark mode on initial app render
-  useEffect(() => {
-    const isDark = JSON.parse(localStorage.getItem("theme_dark")) || false;
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, []);
+  // Globally initializes dark mode (system preference by default, or the
+  // user's saved choice) and keeps it in sync on every route.
+  useTheme();
 
   return (
     <>

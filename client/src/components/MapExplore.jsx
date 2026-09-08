@@ -4,6 +4,8 @@ import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import { useTranslation } from "react-i18next";
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useTheme } from "../hooks/useTheme";
+import { Landmark, UtensilsCrossed, Hotel, Trees, MapPin, Search, Globe, Star } from "lucide-react";
 
 // Zoom control component to link custom buttons to map
 const CustomZoomControl = ({ zoomIn, zoomOut }) => {
@@ -26,22 +28,7 @@ const MapExplore = () => {
 
   const [userLocation, setUserLocation] = useState(null);
   const [geoError, setGeoError] = useState(null);
-  const [isDarkMode, setIsDarkMode] = useState(
-    document.documentElement.classList.contains("dark")
-  );
-
-  useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName === "class") {
-          setIsDarkMode(document.documentElement.classList.contains("dark"));
-        }
-      });
-    });
-    
-    observer.observe(document.documentElement, { attributes: true });
-    return () => observer.disconnect();
-  }, []);
+  const { isDarkMode } = useTheme();
 
   // Center of the world
   const defaultPosition = [48.8566, 2.3522]; // Paris default
@@ -186,20 +173,24 @@ const MapExplore = () => {
     return '#e76f51'; // Default Orange
   };
 
-  const getEmoji = (category) => {
+  const getCategoryIcon = (category) => {
     const cat = category?.toLowerCase() || '';
-    if (cat.includes('museum') || cat.includes('historical') || cat.includes('attraction')) return '🏛️'; 
-    if (cat.includes('kitchen') || cat.includes('restaurant')) return '🍽️';
-    if (cat.includes('hotel') || cat.includes('lodging')) return '🏨';
-    if (cat.includes('garden') || cat.includes('park')) return '🌳';
-    return '📍';
+    if (cat.includes('museum') || cat.includes('historical') || cat.includes('attraction')) return Landmark;
+    if (cat.includes('kitchen') || cat.includes('restaurant')) return UtensilsCrossed;
+    if (cat.includes('hotel') || cat.includes('lodging')) return Hotel;
+    if (cat.includes('garden') || cat.includes('park')) return Trees;
+    return MapPin;
   };
+
+  // Raw SVG markup for the star used inside Leaflet's HTML-string marker labels
+  // (Leaflet DivIcon takes plain HTML, not React elements, so icons here are inlined as SVG strings).
+  const STAR_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:inline;vertical-align:-1px;margin-right:2px;"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path></svg>';
 
   // Create custom HTML markers for each place
   const createCustomIcon = (place) => {
     const color = getMarkerColor(place.category);
     // Determine what to show in label (name + optional rating)
-    let label = place.category?.includes('Kitchen') ? `${place.name} ★${place.rating || "4.9"}` : place.name;
+    let label = place.category?.includes('Kitchen') ? `${place.name} ${STAR_SVG}${place.rating || "4.9"}` : place.name;
     
     // We create a glowing HTML string for the Leaflet DivIcon
     const htmlString = `
@@ -261,7 +252,7 @@ const MapExplore = () => {
            </button>
            
            <div className="flex-1 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center px-4 shadow-sm h-12 transition-colors">
-             <span className="text-slate-500 text-lg mr-2">🔍</span>
+             <Search className="w-4 h-4 text-slate-500 mr-2" />
              <input 
                type="text" 
                placeholder={t('map.search')} 
@@ -276,7 +267,7 @@ const MapExplore = () => {
         <div className="flex flex-col space-y-3 pointer-events-auto shrink-0">
           <button onClick={() => setTriggerZoomIn(prev => prev + 1)} className="w-12 h-12 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center justify-center text-slate-900 dark:text-white font-bold text-xl shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors">+</button>
           <button onClick={() => setTriggerZoomOut(prev => prev + 1)} className="w-12 h-12 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center justify-center text-slate-900 dark:text-white font-bold text-2xl pb-1 shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors">-</button>
-          <button className="w-12 h-12 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center justify-center text-xl shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors">📍</button>
+          <button className="w-12 h-12 bg-[#e8e6e1] dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors"><MapPin className="w-5 h-5 text-slate-900 dark:text-white" /></button>
         </div>
       </div>
 
@@ -290,7 +281,7 @@ const MapExplore = () => {
 
       {loading ? (
         <div className="flex-1 h-full flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-          <span className="text-6xl animate-pulse">🌍</span>
+          <Globe className="w-16 h-16 text-slate-400 animate-pulse" />
         </div>
       ) : (
         <div className="absolute inset-0 z-0">
@@ -360,16 +351,16 @@ const MapExplore = () => {
                 className="bg-slate-100 dark:bg-slate-900 rounded-3xl p-4 flex items-center justify-between cursor-pointer hover:bg-[#e8e4d9] dark:hover:bg-slate-800 transition-colors"
               >
                 <div className="flex items-center space-x-4">
-                  <div 
-                    className="w-12 h-12 bg-[#e2dcd0] dark:bg-slate-800 rounded-2xl flex items-center justify-center text-2xl shadow-inner transition-colors bg-cover bg-center shrink-0 overflow-hidden"
+                  <div
+                    className="w-12 h-12 bg-[#e2dcd0] dark:bg-slate-800 rounded-2xl flex items-center justify-center shadow-inner transition-colors bg-cover bg-center shrink-0 overflow-hidden"
                     style={place.photoUrl ? { backgroundImage: `url(${place.photoUrl})` } : {}}
                   >
-                    {!place.photoUrl && getEmoji(place.category)}
+                    {!place.photoUrl && (() => { const Icon = getCategoryIcon(place.category); return <Icon className="w-6 h-6 text-slate-500 dark:text-gray-400" />; })()}
                   </div>
                   <div>
                     <h3 className="font-['Playfair_Display',serif] text-lg font-bold text-slate-900 dark:text-white leading-tight mb-0.5 transition-colors">{place.name}</h3>
                     <div className="flex items-center text-[#9c9387] dark:text-gray-400 text-xs font-semibold transition-colors">
-                      <span className="text-slate-500 dark:text-gray-500 mr-1 transition-colors">★</span> {place.rating || "4.5"} 
+                      <Star className="w-3 h-3 text-slate-500 dark:text-gray-500 mr-1" fill="currentColor" /> {place.rating || "4.5"}
                       <span className="mx-1.5">•</span> 
                       {place.category}
                     </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useToast } from "./Toast";
+import { UtensilsCrossed, Trees, Landmark, Camera, Hotel, MapPin, Star, Phone, Globe } from "lucide-react";
 
 const ConfirmModal = ({ message, onConfirm, onCancel }) => (
   <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-6">
@@ -132,7 +133,7 @@ const PlaceDetails = () => {
           }),
         });
         setIsSaved(true);
-        showToast("Place saved! ♡", "success");
+        showToast("Place saved!", "success");
       }
     } catch (err) {
       showToast("Failed to update saved places", "error");
@@ -156,7 +157,7 @@ const PlaceDetails = () => {
         setReviews([{ id: Date.now(), rating, comment, user_id: loggedInUserId, full_name: currentUser.full_name || "Me", created_at: new Date().toISOString() }, ...reviews]);
         setComment("");
         setRating(5);
-        showToast("Review submitted! Thank you 🌟", "success");
+        showToast("Review submitted! Thank you.", "success");
       } else {
         const errorData = await res.json();
         showToast(errorData.message || "Failed to submit review.", "error");
@@ -247,19 +248,20 @@ const PlaceDetails = () => {
               <span className="text-sm">
                 {(() => {
                   const c = place.category || '';
-                  if (c.includes('Restaurant')) return '🍽️';
-                  if (c.includes('Park')) return '🌳';
-                  if (c.includes('Historical')) return '🏛️';
-                  if (c.includes('Attraction')) return '📸';
-                  if (c.includes('Hotel')) return '🏨';
-                  return '📍';
+                  let Icon = MapPin;
+                  if (c.includes('Restaurant')) Icon = UtensilsCrossed;
+                  else if (c.includes('Park')) Icon = Trees;
+                  else if (c.includes('Historical')) Icon = Landmark;
+                  else if (c.includes('Attraction')) Icon = Camera;
+                  else if (c.includes('Hotel')) Icon = Hotel;
+                  return <Icon className="w-4 h-4" />;
                 })()}
               </span>
               <span>{t(`dashboard.cat_${(place.category || '').toLowerCase()}`, place.category || '')}</span>
             </div>
             <h1 className="font-display tracking-tight text-4xl font-bold leading-tight mb-2">{place.name}</h1>
             <div className="flex items-center space-x-2">
-              <span className="text-amber-500 text-lg mb-1">★</span>
+              <Star className="w-4 h-4 text-amber-500 mb-1" fill="currentColor" />
               <span className="font-semibold text-lg">{place.rating || "4.5"}</span>
               <span className="text-slate-500 font-medium text-sm">({reviews.length} {t('details.reviews')})</span>
             </div>
@@ -277,19 +279,19 @@ const PlaceDetails = () => {
           <div className="flex flex-wrap gap-3">
              {place.phone && (
                <a href={`tel:${place.phone}`} className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 rounded-2xl text-xs font-bold border border-transparent dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shadow-sm">
-                 <span>📞</span>
+                 <Phone className="w-3.5 h-3.5" />
                  <span>{place.phone}</span>
                </a>
              )}
              {place.website && (
                <a href={place.website} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 rounded-2xl text-xs font-bold border border-transparent dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shadow-sm">
-                 <span>🌐</span>
+                 <Globe className="w-3.5 h-3.5" />
                  <span>Website</span>
                </a>
              )}
              {place.googleMapsUri && (
                <a href={place.googleMapsUri} target="_blank" rel="noopener noreferrer" className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 rounded-2xl text-xs font-bold border border-transparent dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 transition-all shadow-sm">
-                 <span>📍</span>
+                 <MapPin className="w-3.5 h-3.5" />
                  <span>Maps</span>
                </a>
              )}
@@ -379,7 +381,7 @@ const PlaceDetails = () => {
                     </div>
                     <div className="flex flex-col items-end space-y-2">
                       <div className="bg-indigo-50 dark:bg-slate-800 px-3 py-1 rounded-full flex items-center text-indigo-600 font-bold text-sm shadow-sm">
-                        <span className="mr-1">★</span> {rev.rating}
+                        <Star className="w-3.5 h-3.5 mr-1" fill="currentColor" /> {rev.rating}
                       </div>
                       {rev.user_id === loggedInUserId && (
                         <button onClick={() => handleDeleteReview(rev.id)}

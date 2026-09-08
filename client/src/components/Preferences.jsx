@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Landmark, Trees, UtensilsCrossed, Hotel, Camera, Sparkles } from "lucide-react";
 
 const Preferences = () => {
   const navigate = useNavigate();
   const [selected, setSelected] = useState([]);
 
   const categories = [
-    { id: "Culture", emoji: "🏛️", label: "Culture & History", bg: "bg-sky-500" },
-    { id: "Nature", emoji: "🌳", label: "Nature & Parks", bg: "bg-teal-500" },
-    { id: "Dining", emoji: "🍽️", label: "Food & Dining", bg: "bg-amber-400" },
-    { id: "Hotels", emoji: "🏨", label: "Luxury Stays", bg: "bg-slate-200" },
-    { id: "Attraction", emoji: "📸", label: "Tourist Attractions", bg: "bg-rose-400" }
+    { id: "Culture", Icon: Landmark, label: "Culture & History", bg: "bg-sky-500" },
+    { id: "Nature", Icon: Trees, label: "Nature & Parks", bg: "bg-teal-500" },
+    { id: "Dining", Icon: UtensilsCrossed, label: "Food & Dining", bg: "bg-amber-400" },
+    { id: "Hotels", Icon: Hotel, label: "Luxury Stays", bg: "bg-slate-200", fg: "text-slate-700" },
+    { id: "Attraction", Icon: Camera, label: "Tourist Attractions", bg: "bg-rose-400" }
   ];
 
   const toggleCategory = (id) => {
@@ -55,8 +56,8 @@ const Preferences = () => {
                     : `border-transparent bg-slate-100 dark:bg-slate-900 hover:bg-[#e8e4d9] dark:hover:bg-slate-700 opacity-80`
                 }`}
               >
-                <div className={`w-14 h-14 ${cat.bg} rounded-2xl flex items-center justify-center text-3xl shadow-inner`}>
-                  {cat.emoji}
+                <div className={`w-14 h-14 ${cat.bg} rounded-2xl flex items-center justify-center shadow-inner`}>
+                  <cat.Icon className={`w-7 h-7 ${cat.fg || "text-white"}`} />
                 </div>
                 <div className="flex-1">
                   <h3 className={`font-['Playfair_Display',serif] text-xl font-bold transition-colors ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-gray-400'}`}>
@@ -81,7 +82,9 @@ const Preferences = () => {
           onClick={handleSave}
           className="w-full bg-slate-900 dark:bg-white text-white dark:text-black font-bold py-4 rounded-2xl hover:bg-slate-950 dark:hover:bg-gray-200 transition-colors shadow-lg text-lg flex justify-center items-center"
         >
-          {selected.length > 0 ? "Personalize My App ✨" : "Skip For Now"}
+          {selected.length > 0 ? (
+            <span className="flex items-center gap-2"><Sparkles className="w-5 h-5" /> Personalize My App</span>
+          ) : "Skip For Now"}
         </button>
       </div>
     </div>

@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BottomNav from "./BottomNav";
 import { useToast } from "./Toast";
+import { useTheme } from "../hooks/useTheme";
+import { Settings, ShieldCheck, User } from "lucide-react";
 
 const Profile = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const showToast = useToast();
+  const { themeMode, setThemeMode } = useTheme();
   const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem("user") || '{}'));
   const [savedCount, setSavedCount] = useState(null);
   const [updatingLang, setUpdatingLang] = useState(false);
@@ -118,7 +121,7 @@ const Profile = () => {
         {/* Avatar */}
         <div className="w-24 h-24 bg-slate-200 rounded-full mt-6 mb-4 flex items-center justify-center text-4xl font-bold text-indigo-600 shadow-inner border-4 border-white/20"
           style={{ animation: "fadeInUp 0.4s ease-out both" }}>
-          {user.full_name ? user.full_name.charAt(0).toUpperCase() : "👤"}
+          {user.full_name ? user.full_name.charAt(0).toUpperCase() : <User className="w-9 h-9" />}
         </div>
         <h1 className="font-['Playfair_Display',serif] text-3xl font-bold text-white" style={{ animation: "fadeInUp 0.4s ease-out 0.1s both" }}>
           {user.full_name || t('profile.tourist')}
@@ -151,7 +154,7 @@ const Profile = () => {
         {/* Account Details Card */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 transition-colors" style={{ animation: "fadeInUp 0.4s ease-out 0.15s both" }}>
           <h2 className="font-['Playfair_Display',serif] text-xl font-bold mb-5 flex items-center">
-            <span className="mr-2">⚙️</span> {t('profile.account_settings')}
+            <Settings className="w-5 h-5 mr-2" /> {t('profile.account_settings')}
           </h2>
           <div className="space-y-4">
             <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-700 transition-colors">
@@ -160,7 +163,7 @@ const Profile = () => {
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-700 transition-colors">
               <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{t('profile.email')}</span>
-              <span className="font-semibold truncate max-w-[180px]">{user.email || "N/A"}</span>
+              <span className="font-semibold truncate max-w-45">{user.email || "N/A"}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-700 transition-colors">
               <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{t('profile.language')}</span>
@@ -177,6 +180,18 @@ const Profile = () => {
                 <option value="it">Italian</option>
                 <option value="pt">Portuguese</option>
                 <option value="jp">Japanese</option>
+              </select>
+            </div>
+            <div className="flex justify-between items-center py-2 transition-colors">
+              <span className="text-slate-500 font-bold text-xs uppercase tracking-wider">{t('profile.mode')}</span>
+              <select
+                value={themeMode}
+                onChange={(e) => setThemeMode(e.target.value)}
+                className="font-semibold bg-slate-50 dark:bg-slate-800 px-3 py-1 rounded-md text-sm outline-none border-none cursor-pointer transition-colors"
+              >
+                <option value="system">{t('profile.mode_device')}</option>
+                <option value="light">{t('profile.mode_light')}</option>
+                <option value="dark">{t('profile.mode_dark')}</option>
               </select>
             </div>
           </div>
@@ -199,7 +214,7 @@ const Profile = () => {
           {user.role === "admin" && (
             <button onClick={() => navigate("/admin")}
               className="w-full bg-slate-950 text-amber-500 font-extrabold py-4 rounded-2xl hover:bg-gray-900 transition-all shadow-xl flex justify-center items-center border border-amber-500/20 uppercase tracking-widest text-xs">
-              <span className="mr-2 text-lg">🛡️</span>
+              <ShieldCheck className="w-5 h-5 mr-2" />
               {t('profile.admin_dashboard', 'Go to Admin Dashboard')}
             </button>
           )}
@@ -212,7 +227,7 @@ const Profile = () => {
           <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl max-w-sm w-full border border-slate-100 dark:border-slate-700"
             style={{ animation: "fadeInUp 0.25s ease-out both" }}>
             <h3 className="font-['Playfair_Display',serif] text-xl font-bold mb-4 text-slate-900 dark:text-white flex items-center">
-              <span className="mr-2">⚙️</span> {t('profile.edit_title')}
+              <Settings className="w-5 h-5 mr-2" /> {t('profile.edit_title')}
             </h3>
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div>

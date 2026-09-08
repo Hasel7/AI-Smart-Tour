@@ -1,34 +1,13 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { Sparkles } from "lucide-react";
 
 const Onboarding = () => {
   const { t } = useTranslation();
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    return JSON.parse(localStorage.getItem("theme_dark")) || false;
-  });
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    localStorage.setItem("theme_dark", JSON.stringify(isDarkMode));
-  }, [isDarkMode]);
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#12100e] text-slate-900 dark:text-white font-['Inter',sans-serif] bg-[linear-gradient(to_right,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[40px_40px] relative flex flex-col justify-end p-6 sm:p-8 transition-colors duration-300">
       {/* Top right gradient glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_-20%,rgba(79,70,229,0.12),transparent_50%)] mix-blend-screen pointer-events-none"></div>
-
-      {/* Theme Toggle */}
-      <button 
-        onClick={() => setIsDarkMode(!isDarkMode)}
-        className="absolute top-6 right-6 w-12 h-12 bg-slate-950/5 dark:bg-white/10 rounded-full flex items-center justify-center hover:bg-slate-950/10 dark:hover:bg-white/20 transition-all z-50 text-xl"
-        title="Toggle Theme"
-      >
-        {isDarkMode ? "☀️" : "🌙"}
-      </button>
 
       <div className="relative z-10 max-w-md mx-auto w-full">
         {/* Pill Badge */}
@@ -36,7 +15,7 @@ const Onboarding = () => {
           className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full border border-[#524424] bg-[#2a2618]/60 backdrop-blur-sm mb-8"
           style={{ animation: "fadeInUp 0.5s ease-out 0.1s both" }}
         >
-          <span className="text-amber-500 text-sm leading-none">✦</span>
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
           <span className="text-amber-500 text-xs font-semibold tracking-wider">
             {t('onboarding.pill')}
           </span>

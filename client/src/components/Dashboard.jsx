@@ -2,7 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { findSurvivalGuide } from "../utils/countryData";
+import { useTheme } from "../hooks/useTheme";
 import BottomNav from "./BottomNav";
+import {
+  Hand, Sparkles, Star, X, Lightbulb, Map, Landmark, UtensilsCrossed,
+  Hotel, Trees, Volleyball, Camera, MapPin, ShoppingBag, ChevronUp, ChevronDown, Globe,
+} from "lucide-react";
 
 const Dashboard = () => {
   const { t, i18n } = useTranslation();
@@ -15,25 +20,15 @@ const Dashboard = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [countryName, setCountryName] = useState(null);
   const [regionName, setRegionName] = useState("");
-  const [showSurvivalGuide, setShowSurvivalGuide] = useState(true);
+  const [survivalGuideMinimized, setSurvivalGuideMinimized] = useState(() => {
+    return localStorage.getItem("survivalGuideMinimized") === "true";
+  });
   const [etiquetteIndex, setEtiquetteIndex] = useState(0);
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [geoError, setGeoError] = useState(null);
   const [isLiveGps, setIsLiveGps] = useState(false);
   const [activeCategory, setActiveCategory] = useState("ALL");
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem("theme") === "dark" || false;
-  });
-
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDarkMode]);
+  useTheme();
 
   // We parse the user from sessionStorage. Fallback to 'Amara' if not found.
   const user = JSON.parse(
@@ -145,9 +140,14 @@ const Dashboard = () => {
     }
   }, [userLocation, countryName]);
 
+  // ────────────── SURVIVAL GUIDE MINIMIZE STATE (persisted) ──────────────
+  useEffect(() => {
+    localStorage.setItem("survivalGuideMinimized", String(survivalGuideMinimized));
+  }, [survivalGuideMinimized]);
+
   // ────────────── ETIQUETTE & PHRASE ROTATION ──────────────
   useEffect(() => {
-    if (countryName && showSurvivalGuide) {
+    if (countryName && !survivalGuideMinimized) {
       const guide = findSurvivalGuide(countryName, regionName);
       let etiquetteInterval;
       let phraseInterval;
@@ -169,7 +169,7 @@ const Dashboard = () => {
         if(phraseInterval) clearInterval(phraseInterval);
       };
     }
-  }, [countryName, showSurvivalGuide]);
+  }, [countryName, survivalGuideMinimized]);
 
   useEffect(() => {
     if (!userLocation) return;
@@ -367,18 +367,12 @@ const Dashboard = () => {
           <p className="text-slate-500 dark:text-slate-400 text-sm transition-colors">{getGreeting()}</p>
           <h1 className="font-display tracking-tight text-3xl font-bold flex items-center space-x-2 mt-1">
             <span>{firstName}</span>
-            <span className="text-2xl">👋</span>
+            <Hand className="w-6 h-6 text-amber-500" />
           </h1>
         </div>
 
-        {/* Avatar & Toggle */}
+        {/* Avatar */}
         <div className="flex items-center space-x-4">
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="w-11 h-11 rounded-full bg-slate-200 dark:bg-slate-800 text-xl flex items-center justify-center transition-colors shadow-sm"
-          >
-            {isDarkMode ? "☀️" : "🌙"}
-          </button>
           <div
             onClick={handleLogout}
             title="Sign out"
@@ -394,7 +388,7 @@ const Dashboard = () => {
         {aiRecommendations.length > 0 && (
           <section className="animate-fade-in">
             <div className="flex items-center space-x-3 mb-5">
-              <div className="w-10 h-10 bg-linear-to-br from-indigo-600 to-amber-500 rounded-2xl flex items-center justify-center text-xl shadow-lg shadow-indigo-600/20">✨</div>
+              <div className="w-10 h-10 bg-linear-to-br from-indigo-600 to-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20"><Sparkles className="w-5 h-5 text-white" /></div>
               <div>
                 <h2 className="font-display tracking-tight text-2xl font-bold dark:text-white">Recommended for You</h2>
                 <div className="flex items-center space-x-1.5">
@@ -408,15 +402,16 @@ const Dashboard = () => {
             <div className="flex overflow-x-auto space-x-5 pb-6 scrollbar-hide -mx-6 px-6">
               {aiRecommendations.map((rec, i) => {
                 const score = rec.score || 0.85;
-                const getEmoji = (c) => {
+                const getCategoryIcon = (c) => {
                   const cat = c?.toLowerCase() || "";
-                  if (cat.includes("nature") || cat.includes("park")) return "🌿";
-                  if (cat.includes("museum") || cat.includes("art")) return "🏛️";
-                  if (cat.includes("food") || cat.includes("restau")) return "🍽️";
-                  if (cat.includes("hotel") || cat.includes("lodg")) return "🏨";
-                  if (cat.includes("shop") || cat.includes("mall")) return "🛍️";
-                  return "📍";
+                  if (cat.includes("nature") || cat.includes("park")) return Trees;
+                  if (cat.includes("museum") || cat.includes("art")) return Landmark;
+                  if (cat.includes("food") || cat.includes("restau")) return UtensilsCrossed;
+                  if (cat.includes("hotel") || cat.includes("lodg")) return Hotel;
+                  if (cat.includes("shop") || cat.includes("mall")) return ShoppingBag;
+                  return MapPin;
                 };
+                const CategoryIcon = getCategoryIcon(rec.category);
 
                 return (
                   <div 
@@ -432,13 +427,11 @@ const Dashboard = () => {
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 opacity-80 group-hover:opacity-100" 
                         />
                       ) : (
-                        <span className="text-6xl transform group-hover:scale-110 transition-transform duration-500">
-                          {getEmoji(rec.category)}
-                        </span>
+                        <CategoryIcon className="w-14 h-14 text-white/90 transform group-hover:scale-110 transition-transform duration-500" />
                       )}
-                      
-                      <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-950/50 backdrop-blur-md px-2 py-1 rounded-xl shadow-sm">
-                        <span className="text-xs font-bold text-yellow-500">★ {rec.rating || "4.5"}</span>
+
+                      <div className="absolute top-4 right-4 bg-white/90 dark:bg-slate-950/50 backdrop-blur-md px-2 py-1 rounded-xl shadow-sm flex items-center">
+                        <Star className="w-3 h-3 text-yellow-500 mr-1" fill="currentColor" /> <span className="text-xs font-bold text-yellow-500">{rec.rating || "4.5"}</span>
                       </div>
                     </div>
                     <div className="p-5">
@@ -521,45 +514,97 @@ const Dashboard = () => {
           SURVIVAL GUIDE WIDGET (BORDER CROSSING)
           ======================================== 
         */}
-        {countryName && findSurvivalGuide(countryName, regionName) && showSurvivalGuide && (
+        {countryName && (() => {
+          const guide = findSurvivalGuide(countryName, regionName);
+
+          if (survivalGuideMinimized) {
+            return (
+              <button
+                onClick={() => setSurvivalGuideMinimized(false)}
+                className="w-full flex items-center justify-between rounded-3xl px-5 py-3.5 bg-linear-to-br from-slate-900/95 to-slate-950/90 backdrop-blur-2xl border border-white/5 shadow-sm hover:from-slate-800 hover:to-slate-900 transition-all"
+              >
+                <span className="flex items-center space-x-2.5">
+                  {guide ? <span className="text-xl">{guide.flag}</span> : <Globe className="w-5 h-5 text-slate-400" />}
+                  <span className="text-slate-300 text-[10px] font-bold uppercase tracking-widest">{t('survival.local_survival_guide')}</span>
+                </span>
+                <ChevronDown className="w-4 h-4 text-slate-500" />
+              </button>
+            );
+          }
+
+          if (!guide) {
+            return (
+              <div className="relative overflow-hidden rounded-4xl p-6 shadow-xl bg-linear-to-br from-slate-900/95 to-slate-950/90 backdrop-blur-2xl border border-white/5">
+                <button
+                  onClick={() => setSurvivalGuideMinimized(true)}
+                  className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+                  title="Minimize"
+                >
+                   <ChevronUp className="w-5 h-5" />
+                </button>
+                <div className="flex items-center space-x-3 mb-4">
+                   <div className="w-11 h-11 rounded-2xl bg-slate-800 flex items-center justify-center shrink-0">
+                     <Globe className="w-6 h-6 text-slate-400" />
+                   </div>
+                   <div>
+                      <h3 className="text-slate-500 text-[10px] font-bold tracking-widest uppercase mb-0.5">{t('survival.local_survival_guide')}</h3>
+                      <h2 className="text-white font-display tracking-tight text-xl font-bold">{countryName}</h2>
+                   </div>
+                </div>
+                <div className="bg-slate-800 rounded-2xl p-4">
+                  <p className="text-slate-300 text-xs font-medium leading-relaxed mb-3">
+                    {t('survival.no_guide_intro', { country: countryName })}
+                  </p>
+                  <ul className="space-y-1.5 text-slate-400 text-[11px] font-medium list-disc list-inside">
+                    <li>{t('survival.generic_tip_1')}</li>
+                    <li>{t('survival.generic_tip_2')}</li>
+                    <li>{t('survival.generic_tip_3')}</li>
+                  </ul>
+                </div>
+              </div>
+            );
+          }
+
+          return (
           <div className="relative overflow-hidden rounded-4xl p-6 shadow-xl bg-linear-to-br from-slate-900/95 to-slate-950/90 backdrop-blur-2xl border border-white/5">
-            {/* Close Button */}
-            <button 
-              onClick={() => setShowSurvivalGuide(false)}
+            {/* Minimize Button */}
+            <button
+              onClick={() => setSurvivalGuideMinimized(true)}
               className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+              title="Minimize"
             >
-               ✕
+               <ChevronUp className="w-5 h-5" />
             </button>
             <div className="flex items-center space-x-3 mb-4">
-               <span className="text-4xl">{findSurvivalGuide(countryName, regionName).flag}</span>
+               <span className="text-4xl">{guide.flag}</span>
                <div>
                   <h3 className="text-slate-500 text-[10px] font-bold tracking-widest uppercase mb-0.5">{t('survival.local_survival_guide')}</h3>
-                  <h2 className="text-white font-display tracking-tight text-xl font-bold">{findSurvivalGuide(countryName, regionName).greeting}</h2>
+                  <h2 className="text-white font-display tracking-tight text-xl font-bold">{guide.greeting}</h2>
                </div>
             </div>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-slate-800 rounded-2xl p-4 flex flex-col justify-center text-center">
                 <h4 className="text-amber-500 text-[10px] font-bold tracking-widest uppercase mb-4 flex justify-between items-center text-left">
                   <span>{t('survival.essential_phrases')}</span>
-                  <span className="text-slate-500 opacity-50">{phraseIndex + 1}/{findSurvivalGuide(countryName, regionName).phrases?.length || 1}</span>
+                  <span className="text-slate-500 opacity-50">{phraseIndex + 1}/{guide.phrases?.length || 1}</span>
                 </h4>
                 <div key={phraseIndex} className="animate-[fadeIn_0.5s_ease-in-out]">
                   <div className="text-slate-500 text-[11px] font-bold uppercase tracking-widest mb-1.5">
-                    {t(`survival.${(findSurvivalGuide(countryName, regionName).phrases[phraseIndex]?.meaning || "").toLowerCase().replace(/[^a-z0-9]/g, '_')}`, findSurvivalGuide(countryName, regionName).phrases[phraseIndex]?.meaning || "")}
+                    {t(`survival.${(guide.phrases[phraseIndex]?.meaning || "").toLowerCase().replace(/[^a-z0-9]/g, '_')}`, guide.phrases[phraseIndex]?.meaning || "")}
                   </div>
-                  <div className="text-white font-display tracking-tight text-3xl font-bold">{findSurvivalGuide(countryName, regionName).phrases[phraseIndex]?.text}</div>
+                  <div className="text-white font-display tracking-tight text-3xl font-bold">{guide.phrases[phraseIndex]?.text}</div>
                 </div>
               </div>
               <div className="flex flex-col h-full">
                  <div className="bg-slate-800 rounded-2xl p-4 flex-1 flex flex-col justify-center">
                     <h4 className="text-teal-500 text-[10px] font-bold tracking-widest uppercase mb-1 flex justify-between items-center">
-                      <span><span className="mr-1">💡</span> {t('survival.etiquette')}</span>
-                      <span className="text-slate-500 opacity-50">{etiquetteIndex + 1}/{findSurvivalGuide(countryName, regionName).etiquettes?.length || 1}</span>
+                      <span className="flex items-center"><Lightbulb className="w-3 h-3 mr-1" /> {t('survival.etiquette')}</span>
+                      <span className="text-slate-500 opacity-50">{etiquetteIndex + 1}/{guide.etiquettes?.length || 1}</span>
                     </h4>
                     <p key={etiquetteIndex} className="text-slate-200 text-xs font-medium leading-relaxed min-h-10 animate-[fadeIn_0.5s_ease-in-out]">
                       {(() => {
-                        const rawEtiquette = findSurvivalGuide(countryName, regionName).etiquettes ? findSurvivalGuide(countryName, regionName).etiquettes[etiquetteIndex] : findSurvivalGuide(countryName, regionName).etiquette;
+                        const rawEtiquette = guide.etiquettes ? guide.etiquettes[etiquetteIndex] : guide.etiquette;
                         const safeKey = rawEtiquette ? "etiquette_" + rawEtiquette.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30).replace(/_+/g, '_').replace(/_$/, '') : 'unknown';
                         return t(`survival.${safeKey}`, rawEtiquette || "");
                       })()}
@@ -568,7 +613,8 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/*
           ========================================
@@ -584,42 +630,42 @@ const Dashboard = () => {
               onClick={() => setActiveCategory("ALL")}
               className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "ALL" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
             >
-              <span className={`text-2xl mb-2 ${activeCategory !== "ALL" && "opacity-80"}`}>🗺️</span>
+              <Map className={`w-6 h-6 mb-2 ${activeCategory !== "ALL" && "opacity-80"}`} />
               <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_all')}</span>
             </div>
             <div 
               onClick={() => setActiveCategory("CULTURE")}
               className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "CULTURE" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
             >
-              <span className={`text-2xl mb-2 ${activeCategory !== "CULTURE" && "opacity-80"}`}>🏛️</span>
+              <Landmark className={`w-6 h-6 mb-2 ${activeCategory !== "CULTURE" && "opacity-80"}`} />
               <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_culture')}</span>
             </div>
             <div 
               onClick={() => setActiveCategory("DINING")}
               className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "DINING" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
             >
-              <span className={`text-2xl mb-2 ${activeCategory !== "DINING" && "opacity-80"}`}>🍽️</span>
+              <UtensilsCrossed className={`w-6 h-6 mb-2 ${activeCategory !== "DINING" && "opacity-80"}`} />
               <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_dining')}</span>
             </div>
             <div 
               onClick={() => setActiveCategory("HOTELS")}
               className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "HOTELS" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
             >
-              <span className={`text-2xl mb-2 ${activeCategory !== "HOTELS" && "opacity-80"}`}>🏨</span>
+              <Hotel className={`w-6 h-6 mb-2 ${activeCategory !== "HOTELS" && "opacity-80"}`} />
               <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_hotels')}</span>
             </div>
             <div 
               onClick={() => setActiveCategory("NATURE")}
               className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "NATURE" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
             >
-              <span className={`text-2xl mb-2 ${activeCategory !== "NATURE" && "opacity-80"}`}>🌳</span>
+              <Trees className={`w-6 h-6 mb-2 ${activeCategory !== "NATURE" && "opacity-80"}`} />
               <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_nature')}</span>
             </div>
             <div 
               onClick={() => setActiveCategory("SPORTS")}
               className={`flex flex-col flex-none items-center justify-center w-20 h-24 rounded-2xl cursor-pointer transition-colors ${activeCategory === "SPORTS" ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md" : "bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800"}`}
             >
-              <span className={`text-2xl mb-2 ${activeCategory !== "SPORTS" && "opacity-80"}`}>⚽</span>
+              <Volleyball className={`w-6 h-6 mb-2 ${activeCategory !== "SPORTS" && "opacity-80"}`} />
               <span className="text-[10px] font-semibold tracking-wider">{t('dashboard.cat_sports', 'SPORTS')}</span>
             </div>
           </div>
@@ -695,17 +741,17 @@ const Dashboard = () => {
                 const charCode = place.name ? place.name.charCodeAt(0) : 0;
                 const bgColor = colors[charCode % colors.length];
 
-                // Pick a random emoji if category doesn't inherently give one
-                const getEmoji = (category) => {
-                  if (category?.includes("Restaurant")) return "🍽️";
-                  if (category?.includes("Park")) return "🌳";
-                  if (category?.includes("Historical")) return "🏛️";
-                  if (category?.includes("Museum")) return "🏺";
-                  if (category?.includes("Hotel") || category?.includes("Lodging")) return "🏨";
-                  if (category?.includes("Sports")) return "⚽";
-                  if (category?.includes("Attraction")) return "📸";
-                  return "📍";
+                const getCategoryIcon = (category) => {
+                  if (category?.includes("Restaurant")) return UtensilsCrossed;
+                  if (category?.includes("Park")) return Trees;
+                  if (category?.includes("Historical")) return Landmark;
+                  if (category?.includes("Museum")) return Landmark;
+                  if (category?.includes("Hotel") || category?.includes("Lodging")) return Hotel;
+                  if (category?.includes("Sports")) return Volleyball;
+                  if (category?.includes("Attraction")) return Camera;
+                  return MapPin;
                 };
+                const PlaceIcon = getCategoryIcon(place.category);
 
                 const isSaved = savedPlaces.has(place.id);
 
@@ -744,13 +790,11 @@ const Dashboard = () => {
                     >
                       {place.aiScore > 0 && (
                         <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md text-amber-500 text-[10px] font-bold tracking-widest uppercase px-2 py-1 rounded-full border border-amber-500/50 shadow-lg flex items-center">
-                           ✨ {Math.round(place.aiScore * 100)}% Match
+                           <Sparkles className="w-3 h-3 mr-1" /> {Math.round(place.aiScore * 100)}% Match
                         </div>
                       )}
                       {!place.photoUrl && (
-                        <span className="text-6xl drop-shadow-lg">
-                          {getEmoji(place.category)}
-                        </span>
+                        <PlaceIcon className="w-14 h-14 text-white/90 drop-shadow-lg" />
                       )}
                     </div>
 
@@ -764,7 +808,7 @@ const Dashboard = () => {
                       </h3>
                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium mb-1.5">
                         <div className="flex items-center space-x-1">
-                          <span className="text-lg -mt-0.5">{getEmoji(place.category)}</span>
+                          <PlaceIcon className="w-4 h-4 -mt-0.5" />
                           <span
                             className="truncate max-w-20"
                             title={place.category}
@@ -776,7 +820,7 @@ const Dashboard = () => {
                           </span>
                         </div>
                         <div className="flex items-center text-slate-900 dark:text-gray-300 font-semibold transition-colors">
-                          <span className="text-amber-500 mr-1 text-sm">★</span>
+                          <Star className="w-3.5 h-3.5 text-amber-500 mr-1" fill="currentColor" />
                           {place.rating || "4.5"}
                         </div>
                       </div>

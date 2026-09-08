@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Sparkles } from "lucide-react";
 import api from "../api";
 
 const Login = () => {
@@ -52,7 +53,7 @@ const Login = () => {
       <div className="flex-1 w-full max-w-md mx-auto pt-8 pb-12">
         {/* Branding Badge */}
         <div className="flex items-center space-x-2 mb-10">
-          <span className="text-amber-500 text-lg leading-none">✦</span>
+          <Sparkles className="w-4 h-4 text-amber-500" />
           <span className="text-amber-500 text-sm font-semibold tracking-[0.2em] uppercase">
             Smarttour
           </span>

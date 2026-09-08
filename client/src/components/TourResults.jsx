@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import api from "../api";
 import { useToast } from "./Toast";
 import { useOffline } from "../hooks/useOffline";
+import { Landmark, UtensilsCrossed, Trees, Hotel, MapPin, Wand2, AlertTriangle, Sparkles, Wallet, Check, Bookmark } from "lucide-react";
 
 
 const TourResults = () => {
@@ -86,13 +87,13 @@ const TourResults = () => {
     }
   };
 
-  const getTypeEmoji = (type) => {
+  const getTypeIcon = (type) => {
     switch (type?.toUpperCase()) {
-      case "CULTURE": return "🏛️";
-      case "DINING": return "🍽️";
-      case "NATURE": return "🌳";
-      case "HOTELS": return "🏨";
-      default: return "📍";
+      case "CULTURE": return Landmark;
+      case "DINING": return UtensilsCrossed;
+      case "NATURE": return Trees;
+      case "HOTELS": return Hotel;
+      default: return MapPin;
     }
   };
 
@@ -113,8 +114,8 @@ const TourResults = () => {
         {/* Animated gradient bar */}
         <div className="w-24 h-24 rounded-full mb-8 flex items-center justify-center"
           style={{ background: "conic-gradient(from 0deg, #4f46e5, #dcb35f, #9ebc90, #4f46e5)", animation: "spin 1.8s linear infinite" }}>
-          <div className="w-20 h-20 bg-slate-50 dark:bg-slate-950 rounded-full flex items-center justify-center text-3xl transition-colors">
-            🪄
+          <div className="w-20 h-20 bg-slate-50 dark:bg-slate-950 rounded-full flex items-center justify-center transition-colors">
+            <Wand2 className="w-8 h-8" />
           </div>
         </div>
         <h2 className="font-display tracking-tight text-3xl font-bold text-slate-900 dark:text-white mb-3 transition-colors" style={{ animation: "fadeIn 0.5s ease-out 0.2s both" }}>
@@ -137,7 +138,7 @@ const TourResults = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-center transition-colors duration-300">
-        <div className="text-5xl mb-4">⚠️</div>
+        <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-amber-500" />
         <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2 transition-colors">Oops!</h2>
         <p className="text-indigo-600 mb-6">{error}</p>
         <button 
@@ -165,13 +166,13 @@ const TourResults = () => {
           </svg>
         </button>
         <div className="flex items-center space-x-2 text-amber-500 text-xs font-bold tracking-widest uppercase mb-2">
-          <span>✨</span><span>AI Smart Itinerary</span>
+          <Sparkles className="w-4 h-4" /><span>AI Smart Itinerary</span>
         </div>
         <h1 className="font-display tracking-tight text-[2.5rem] font-bold leading-tight mb-2">{tour.title}</h1>
         <div className="flex items-center text-slate-500 space-x-3 text-sm font-medium">
-          <span className="flex items-center"><span className="mr-1">📍</span> {tour.destination}</span>
+          <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1" /> {tour.destination}</span>
           <span>•</span>
-          <span className="flex items-center"><span className="mr-1">💰</span> {tour.budget_estimate}</span>
+          <span className="flex items-center"><Wallet className="w-3.5 h-3.5 mr-1" /> {tour.budget_estimate}</span>
         </div>
 
         {/* Save Button */}
@@ -187,10 +188,10 @@ const TourResults = () => {
           {isSaving ? (
             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
           ) : isSaved ? (
-            <span>✓ {t ? t('tour.saved', 'Saved') : 'Saved'}</span>
+            <span className="flex items-center gap-1.5"><Check className="w-4 h-4" /> {t ? t('tour.saved', 'Saved') : 'Saved'}</span>
           ) : (
             <>
-              <span>🔖</span>
+              <Bookmark className="w-4 h-4" />
               <span>{t ? t('tour.save_tour', 'Save to My Trips') : 'Save to My Trips'}</span>
             </>
           )}
@@ -238,8 +239,8 @@ const TourResults = () => {
             <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-linear-to-b before:from-slate-100 dark:before:from-slate-700 before:to-transparent">
               {day.activities?.map((act, aIdx) => (
                 <div key={aIdx} className="relative flex items-start space-x-4">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg z-10 shrink-0 shadow-sm border-[3px] border-white dark:border-slate-900 transition-colors">
-                    {getTypeEmoji(act.type)}
+                  <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center z-10 shrink-0 shadow-sm border-[3px] border-white dark:border-slate-900 transition-colors">
+                    {(() => { const Icon = getTypeIcon(act.type); return <Icon className="w-5 h-5" />; })()}
                   </div>
                   <div className="pt-1 w-full">
                     <div className="flex items-center justify-between mb-1">

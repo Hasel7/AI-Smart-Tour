@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useToast } from "./Toast";
+import { Users, MapPin, Star, Search, Map, X } from "lucide-react";
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
@@ -242,12 +243,12 @@ const AdminDashboard = () => {
                         {activeTab === "overview" && (
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-white dark:bg-slate-900 p-6 rounded-4xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                                    <span className="text-2xl block mb-2">👥</span>
+                                    <Users className="w-6 h-6 block mb-2" />
                                     <h4 className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Total Users</h4>
                                     <p className="text-3xl font-bold font-['Playfair_Display',serif]">{users.length}</p>
                                 </div>
                                 <div className="bg-white dark:bg-slate-900 p-6 rounded-4xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                                    <span className="text-2xl block mb-2">📸</span>
+                                    <MapPin className="w-6 h-6 block mb-2" />
                                     <h4 className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">Places</h4>
                                     <p className="text-3xl font-bold font-['Playfair_Display',serif]">{places.length}</p>
                                 </div>
@@ -308,7 +309,7 @@ const AdminDashboard = () => {
                                         </div>
                                         <div className="flex mb-2">
                                             {Array.from({ length: 5 }).map((_, i) => (
-                                                <span key={i} className={i < r.rating ? "text-yellow-400" : "text-gray-200"}>★</span>
+                                                <Star key={i} className={i < r.rating ? "w-4 h-4 text-yellow-400" : "w-4 h-4 text-gray-200"} fill="currentColor" />
                                             ))}
                                         </div>
                                         <p className="text-sm text-slate-900 dark:text-gray-300 italic">"{r.comment}"</p>
@@ -340,7 +341,7 @@ const AdminDashboard = () => {
                                             className="w-full bg-white dark:bg-slate-900 p-5 pr-16 rounded-4xl border border-slate-100 dark:border-slate-700 shadow-md outline-none focus:ring-2 focus:ring-amber-500 transition-all font-medium text-sm"
                                         />
                                         <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-slate-950 text-amber-500 rounded-full flex items-center justify-center shadow-lg transition-transform group-focus-within:scale-110">
-                                            {searchingGoogle ? <div className="w-4 h-4 border-2 border-amber-500/20 border-t-[#dcb35f] rounded-full animate-spin"></div> : "🔍"}
+                                            {searchingGoogle ? <div className="w-4 h-4 border-2 border-amber-500/20 border-t-[#dcb35f] rounded-full animate-spin"></div> : <Search className="w-4 h-4" />}
                                         </button>
                                     </form>
                                 )}
@@ -352,7 +353,7 @@ const AdminDashboard = () => {
                                                 onClick={() => handleOpenPlaceModal(p)}
                                                 className="bg-white dark:bg-slate-900 p-5 rounded-4xl border border-slate-100 dark:border-slate-700 flex items-center space-x-4 shadow-sm hover:scale-[1.02] transition-transform cursor-pointer"
                                             >
-                                                <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-2xl">📍</div>
+                                                <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center"><MapPin className="w-6 h-6" /></div>
                                                 <div className="flex-1">
                                                     <h4 className="font-bold text-sm">{p.name}</h4>
                                                     <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">{p.category}</p>
@@ -366,13 +367,13 @@ const AdminDashboard = () => {
                                         googleResults.map(p => (
                                             <div key={p.id} className="bg-white dark:bg-slate-900 p-5 rounded-4xl border border-slate-100 dark:border-slate-700 flex items-center space-x-4 shadow-sm hover:border-amber-500 transition-all">
                                                 <div className="w-14 h-14 bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center">
-                                                    {p.photo_url ? <img src={p.photo_url} className="w-full h-full object-cover" /> : "🗺️"}
+                                                    {p.photo_url ? <img src={p.photo_url} className="w-full h-full object-cover" /> : <Map className="w-6 h-6" />}
                                                 </div>
                                                 <div className="flex-1">
                                                     <h4 className="font-bold text-sm leading-tight mb-0.5">{p.name}</h4>
                                                     <div className="flex items-center space-x-2">
                                                         <span className="text-[10px] bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full text-slate-500 font-bold uppercase tracking-wider">{p.category}</span>
-                                                        <span className="text-[10px] text-yellow-500">★ {p.rating}</span>
+                                                        <span className="text-[10px] text-yellow-500 flex items-center"><Star className="w-2.5 h-2.5 mr-0.5" fill="currentColor" /> {p.rating}</span>
                                                     </div>
                                                 </div>
                                                 <button onClick={() => handleImportPlace(p)} className="px-4 py-2 bg-slate-950 text-amber-500 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:scale-105 active:scale-95 transition-all">
@@ -394,7 +395,7 @@ const AdminDashboard = () => {
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl max-w-lg w-full border border-white/20 my-auto">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-['Playfair_Display',serif] text-2xl font-bold">{editingPlace ? "Edit Spot" : "Add New Spot"}</h3>
-                            <button onClick={() => setShowPlaceModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+                            <button onClick={() => setShowPlaceModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
                         </div>
                         <form onSubmit={handleSavePlace} className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">

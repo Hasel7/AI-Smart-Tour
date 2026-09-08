@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import BottomNav from "./BottomNav";
 import { useToast } from "./Toast";
+import { UtensilsCrossed, Trees, Landmark, Hotel, Volleyball, Camera, MapPin, Compass, Sparkles, Calendar, Map } from "lucide-react";
 
 const ConfirmModal = ({ message, onConfirm, onCancel }) => (
   <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-sm z-50 flex items-center justify-center p-6">
@@ -121,15 +122,15 @@ const SavedPlaces = () => {
     }
   };
 
-  const getEmoji = (category) => {
-    if (category?.includes('Restaurant')) return '🍽️';
-    if (category?.includes('Park')) return '🌳';
-    if (category?.includes('Historical')) return '🏛️';
-    if (category?.includes('Museum')) return '🏺';
-    if (category?.includes('Hotel') || category?.includes('Lodging')) return '🏨';
-    if (category?.includes('Sports')) return '⚽';
-    if (category?.includes('Attraction')) return '📸';
-    return '📍';
+  const getCategoryIcon = (category) => {
+    if (category?.includes('Restaurant')) return UtensilsCrossed;
+    if (category?.includes('Park')) return Trees;
+    if (category?.includes('Historical')) return Landmark;
+    if (category?.includes('Museum')) return Landmark;
+    if (category?.includes('Hotel') || category?.includes('Lodging')) return Hotel;
+    if (category?.includes('Sports')) return Volleyball;
+    if (category?.includes('Attraction')) return Camera;
+    return MapPin;
   };
 
   const colors = ['bg-sky-500', 'bg-teal-500', 'bg-slate-200', 'bg-amber-400', 'bg-rose-400'];
@@ -172,13 +173,13 @@ const SavedPlaces = () => {
             onClick={() => setActiveTab("places")}
             className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "places" ? "bg-white text-slate-900 shadow-md" : "text-white/70 hover:text-white"}`}
           >
-            📍 Places
+            <span className="inline-flex items-center gap-1.5"><MapPin className="w-4 h-4" /> Places</span>
           </button>
           <button 
             onClick={() => setActiveTab("trips")}
             className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${activeTab === "trips" ? "bg-white text-slate-900 shadow-md" : "text-white/70 hover:text-white"}`}
           >
-            🗺️ Trips
+            <span className="inline-flex items-center gap-1.5"><Map className="w-4 h-4" /> Trips</span>
           </button>
         </div>
       </header>
@@ -199,7 +200,7 @@ const SavedPlaces = () => {
         ) : activeTab === "places" ? (
           savedPlaces.length === 0 ? (
             <div className="text-center py-10 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 transition-colors">
-              <span className="text-5xl block mb-3 opacity-50">🧭</span>
+              <Compass className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p className="text-slate-500 dark:text-gray-400 font-medium transition-colors">{t('saved.no_saved')}</p>
               <button onClick={() => navigate("/dashboard")}
                 className="mt-6 bg-slate-900 dark:bg-slate-800 text-white px-6 py-2.5 rounded-2xl font-semibold hover:bg-indigo-600 transition-colors">
@@ -234,16 +235,14 @@ const SavedPlaces = () => {
                       {place.photo_url && (
                         <div className="absolute inset-0 bg-slate-950/20" />
                       )}
-                      {!place.photo_url && (
-                        <span className="text-5xl drop-shadow-md">{getEmoji(place.category)}</span>
-                      )}
+                      {!place.photo_url && (() => { const Icon = getCategoryIcon(place.category); return <Icon className="w-12 h-12 text-white/90 drop-shadow-md" />; })()}
                     </div>
                     <div className="p-4 pt-3">
                       <h3 className="font-['Playfair_Display',serif] text-sm font-bold text-slate-900 dark:text-white transition-colors truncate block leading-tight">
                         {place.name || "Amazing Place"}
                       </h3>
                       <div className="flex items-center space-x-1 mt-1 text-[11px] font-bold text-slate-500">
-                        <span>{getEmoji(place.category)}</span>
+                        {(() => { const Icon = getCategoryIcon(place.category); return <Icon className="w-3.5 h-3.5" />; })()}
                         <span className="truncate">
                           {(() => {
                             const cat = (place.category || 'Attraction').toLowerCase();
@@ -262,7 +261,7 @@ const SavedPlaces = () => {
           /* Trips Tab */
           savedTours.length === 0 ? (
             <div className="text-center py-10 bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 transition-colors">
-              <span className="text-5xl block mb-3 opacity-50">✨</span>
+              <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p className="text-slate-500 dark:text-gray-400 font-medium transition-colors">No saved trips yet!</p>
               <button onClick={() => navigate("/dashboard")}
                 className="mt-6 bg-slate-900 dark:bg-slate-800 text-white px-6 py-2.5 rounded-2xl font-semibold hover:bg-indigo-600 transition-colors">
@@ -282,9 +281,9 @@ const SavedPlaces = () => {
                     <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-600/10 px-2 py-0.5 rounded-md">Saved Trip</span>
                   </div>
                   <div className="flex items-center space-x-3 text-sm text-slate-500 font-medium">
-                     <span className="flex items-center"><span className="mr-1">📍</span> {tour.destination}</span>
+                     <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1" /> {tour.destination}</span>
                      <span>•</span>
-                     <span className="flex items-center"><span className="mr-1">📅</span> {new Date(tour.created_at).toLocaleDateString()}</span>
+                     <span className="flex items-center"><Calendar className="w-3.5 h-3.5 mr-1" /> {new Date(tour.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
               ))}
